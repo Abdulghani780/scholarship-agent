@@ -20,47 +20,82 @@
 
 ```
 scholarship-agent/
+├── matcher_evaluator_agent.py         # المخرج 1: وكيل التقييم والمطابقة المستقل (CLI & Module)
+├── application_planner_tool.py        # المخرج 2: أداة التخطيط الزمني المستقلة (CLI & Module)
+│
 ├── ai/                                # نواة الذكاء الاصطناعي والوكلاء (AI Agents Core)
 │   └── scholarship_agent/
 │       ├── agents/
-│       │   └── matcher_evaluator_agent.py   # وكيل المطابقة والتحليل (CrewAI)
+│       │   └── matcher_evaluator_agent.py   # منطق الوكيل والخوارزمية الهجينة
 │       ├── tools/
 │       │   └── application_planner_tool.py  # أداة التخطيط وجدولة التقديم
 │       ├── schemas/
 │       │   └── scholarship_schemas.py       # نماذج البيانات الموحدة (Pydantic Schemas)
-│       ├── evals/
-│       │   └── matcher/cases.jsonl          # حالات التقييم والاختبار
-│       └── example.py                       # مثال تجريبي متكامل
+│       └── evals/
+│           └── matcher/cases.jsonl          # حالات التقييم
+│
+├── tests/                             # حزمة الاختبارات الشاملة (Pytest Test Suite)
+│   └── test_agent.py                  # 8 اختبارات موثقة لمعادلة التطابق وقواعد القرار
 │
 ├── app/                               # الواجهة الخلفية (FastAPI Backend)
 │   ├── main.py                        # نقطة الانطلاق وإدارة دورة الحياة (Lifespan)
 │   ├── config.py                      # إعدادات البيئة (Pydantic Settings)
 │   ├── database.py                    # وسيط SQLite غير المتزامن (aiosqlite)
 │   ├── requirements.txt               # متطلبات بايثون
-│   ├── .env.example                   # نموذج متغيرات البيئة
-│   ├── migrations/                    # مخطط قاعدة البيانات وإنشاء الجداول
+│   ├── seed.py                        # بذر البيانات الأولية الواقعية
 │   └── modules/
-│       ├── students/                  # إدارة الطلاب (Router + Service + Repository)
+│       ├── students/                  # إدارة الطلاب (Router + Repository)
 │       ├── scholarships/              # إدارة المنح الدراسية
 │       ├── matching/                  # تشغيل وكيل المطابقة وحفظ النتائج
 │       └── plans/                     # تشغيل وتخزين خطط التقديم
 │
 ├── ui/                                # الواجهة الأمامية (React + Vite + TypeScript)
-│   ├── index.html                     # الصفحة الرئيسية (خط IBM Plex Sans Arabic)
-│   ├── vite.config.ts                 # إعدادات Vite وموجه الـ API Proxy
-│   ├── package.json                   # حزم الواجهة
-│   └── src/
-│       ├── api/client.ts              # عميل استدعاء الـ API
-│       ├── index.css                  # نظام التصميم الداكن
-│       ├── main.tsx                   # شريط التنقل والتوجيه (React Router)
-│       └── pages/
-│           ├── StudentsPage.tsx       # إدارة وتسجيل الطلاب
-│           ├── ScholarshipsPage.tsx   # إدارة واستعراض المنح
-│           ├── MatchPage.tsx          # شاشة المطابقة وتحليل الذكاء الاصطناعي
-│           └── PlanPage.tsx           # شاشة خارطة طريق التقديم والوثائق
+│   ├── src/
+│   │   ├── asaas-ui/                  # طقم أساس الرسمي (Liquid Glass + Thmanyah Fonts)
+│   │   ├── components/                # النوافذ المنبثقة والإعدادات
+│   │   ├── pages/                     # صفحات النظام (طلاب، منح، مفاضلة، خطة)
+│   │   └── main.tsx                   # شريط التنقل والتهيئة
+│   └── package.json
 │
 ├── .gitignore
 └── README.md
+```
+
+---
+
+## 🚀 التشغيل السريع (Quickstart)
+
+### 1. تشغيل وكيل التقييم والمطابقة مباشرة (CLI):
+```bash
+python matcher_evaluator_agent.py
+# أو إخراج النتائج بصيغة JSON:
+python matcher_evaluator_agent.py --json
+```
+
+### 2. تشغيل أداة التخطيط الزمني مباشرة (CLI):
+```bash
+python application_planner_tool.py --top-n 3
+# أو إخراج الخطة بصيغة JSON:
+python application_planner_tool.py --json
+```
+
+### 3. تشغيل حزمة الاختبارات المؤتمتة (Automated Tests):
+```bash
+python -m pytest tests/ -v
+```
+
+### 4. تشغيل منصة الويب المتكاملة (Web App):
+**الخادم الخلفي (FastAPI Backend):**
+```bash
+cd app
+python -m uvicorn main:app --host 127.0.0.1 --port 8000 --reload
+```
+
+**الواجهة الأمامية (React + Vite):**
+```bash
+cd ui
+npm run dev
+# افتح المتصفح على: http://localhost:5174
 ```
 
 ---
