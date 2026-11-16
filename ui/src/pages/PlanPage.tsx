@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { Card, Glass, Button, StatusPill, Swash, ProgressBar } from '../asaas-ui'
+import { Card, Button, Swash, Icon } from '../asaas-ui'
 import { getStudents, generatePlan, getLatestPlan } from '../api/client'
 
 export default function PlanPage() {
@@ -25,7 +25,7 @@ export default function PlanPage() {
       setPlan(p)
       setActiveTab(0)
     } catch (e: any) {
-      setError(e.message || 'فشل في إنشاء خطة التقديم')
+      setError(e.message || 'تعذر إعداد خطة التقديم، يرجى المحاولة لاحقاً')
     } finally {
       setLoading(false)
     }
@@ -40,7 +40,7 @@ export default function PlanPage() {
       setPlan(p)
       setActiveTab(0)
     } catch (e: any) {
-      setError(e.message || 'لا توجد خطة سابقة لهذا الطالب')
+      setError(e.message || 'لا توجد خطة معتمدة سابقة لهذا الملف')
     } finally {
       setLoading(false)
     }
@@ -49,49 +49,49 @@ export default function PlanPage() {
   const sp = plan?.scholarship_plans?.[activeTab]
 
   return (
-    <div style={{ animation: 'fade-in 0.3s ease' }}>
+    <div style={{ animation: 'fade-in 0.25s ease' }}>
       <div style={{ marginBottom: '1.75rem' }}>
-        <h1 style={{ fontSize: '1.8rem', fontWeight: 800, margin: '0 0 0.4rem', color: 'var(--text-1)' }}>
-          خارطة طريق التقديم <Swash>المخصصة</Swash>
+        <h1 style={{ fontSize: '1.65rem', fontWeight: 800, margin: '0 0 0.35rem', color: 'var(--text-1)' }}>
+          خطة وإجراءات التقديم <Swash>الأكاديمي</Swash>
         </h1>
-        <p style={{ color: 'var(--text-2)', fontSize: '0.92rem', margin: 0 }}>
-          مولد خطة التقديم الزمنية لكل منحة مستهدفة مع الوثائق المطلوبة والخطوات التنفيذية بالأولوية.
+        <p style={{ color: 'var(--text-3)', fontSize: '0.9rem', margin: 0, maxWidth: 680, lineHeight: 1.6 }}>
+          جدول زمني تنفيذي، قائمة التحقق من الوثائق الرسمية، ومصفوفة أولويات التقديم بحسب مواعيد الإغلاق ونسب القبول.
         </p>
       </div>
 
-      <Card style={{ padding: '1.5rem', marginBottom: '1.5rem' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(240px, 1fr) 140px auto auto', gap: '1rem', alignItems: 'flex-end', flexWrap: 'wrap' }}>
+      <Card style={{ padding: '1.25rem 1.5rem', marginBottom: '1.5rem' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(240px, 1fr) 140px auto auto', gap: '1rem', alignItems: 'flex-end' }}>
           <div>
-            <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.4rem', color: 'var(--text-2)' }}>
-              اختر الطالب:
+            <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, marginBottom: '0.4rem', color: 'var(--text-2)' }}>
+              ملف الطالب المستهدف
             </label>
             <select
               value={studentId}
               onChange={e => setStudentId(e.target.value)}
               style={{
                 width: '100%',
-                padding: '0.7rem 1rem',
+                padding: '0.65rem 0.9rem',
                 borderRadius: 'var(--radius-sm, 8px)',
                 background: 'var(--surface-2)',
                 color: 'var(--text-1)',
                 border: '1px solid var(--border-soft)',
                 fontFamily: 'inherit',
-                fontSize: '0.95rem',
+                fontSize: '0.9rem',
                 outline: 'none'
               }}
             >
-              <option value="">-- اختر طالباً --</option>
+              <option value="">-- حدد ملف الطالب --</option>
               {students.map(s => (
                 <option key={s.id} value={s.id} style={{ background: '#161b22', color: '#fff' }}>
-                  {s.name} ({s.major})
+                  {s.name} — {s.major} (GPA {s.gpa})
                 </option>
               ))}
             </select>
           </div>
 
           <div>
-            <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.4rem', color: 'var(--text-2)' }}>
-              أفضل المنح:
+            <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, marginBottom: '0.4rem', color: 'var(--text-2)' }}>
+              أعلى منح مستهدفة
             </label>
             <input
               type="number"
@@ -101,13 +101,13 @@ export default function PlanPage() {
               onChange={e => setTopN(parseInt(e.target.value) || 3)}
               style={{
                 width: '100%',
-                padding: '0.7rem 1rem',
+                padding: '0.65rem 0.9rem',
                 borderRadius: 'var(--radius-sm, 8px)',
                 background: 'var(--surface-2)',
                 color: 'var(--text-1)',
                 border: '1px solid var(--border-soft)',
                 fontFamily: 'inherit',
-                fontSize: '0.95rem',
+                fontSize: '0.9rem',
                 outline: 'none'
               }}
             />
@@ -117,55 +117,75 @@ export default function PlanPage() {
             variant="primary"
             onClick={handleGeneratePlan}
             disabled={!studentId || loading}
-            style={{ height: '46px', padding: '0 1.5rem' }}
+            style={{ height: '42px', padding: '0 1.4rem' }}
           >
-            {loading ? 'جاري الإعداد...' : '🚀 توليد الخطة المخصصة'}
+            {loading ? 'جاري الإعداد...' : 'إعداد خطة التقديم'}
           </Button>
 
           <Button
             variant="ghost"
             onClick={handleLoadLatest}
             disabled={!studentId || loading}
-            style={{ height: '46px', padding: '0 1.25rem' }}
+            style={{ height: '42px', padding: '0 1.1rem' }}
           >
-            📂 تحميل الخطة السابقة
+            استرجاع الخطة المحفوظة
           </Button>
         </div>
       </Card>
 
       {error && (
-        <Card style={{ padding: '1rem 1.25rem', marginBottom: '1.5rem', background: 'rgba(248,81,73,0.08)', borderColor: 'rgba(248,81,73,0.25)', color: 'var(--unpaid)' }}>
-          ⚠️ {error}
-        </Card>
+        <div style={{
+          padding: '0.85rem 1.1rem',
+          marginBottom: '1.25rem',
+          borderRadius: 'var(--radius-sm, 8px)',
+          background: 'rgba(248,81,73,0.06)',
+          border: '1px solid rgba(248,81,73,0.3)',
+          color: 'var(--unpaid)',
+          fontSize: '0.88rem'
+        }}>
+          {error}
+        </div>
       )}
 
       {loading && (
         <Card style={{ padding: '3.5rem 1.5rem', textAlign: 'center', marginBottom: '1.5rem' }}>
-          <div style={{ fontSize: '2.5rem', marginBottom: '1rem', animation: 'spin 2s linear infinite', display: 'inline-block' }}>
-            📅
-          </div>
-          <h3 style={{ margin: '0 0 0.5rem', fontSize: '1.2rem', color: 'var(--text-1)' }}>
-            الوكيل يجهز خارطة طريق التقديم وجدول الوثائق والنصائح الاستراتيجية...
+          <div style={{
+            width: 32,
+            height: 32,
+            margin: '0 auto 1.25rem',
+            borderRadius: '50%',
+            border: '2px solid var(--border-soft)',
+            borderTopColor: 'var(--accent)',
+            animation: 'spin 0.8s linear infinite'
+          }} />
+          <h3 style={{ margin: '0 0 0.4rem', fontSize: '1.05rem', color: 'var(--text-1)' }}>
+            جاري جدولة المواعيد وتوليد مصفوفة المتطلبات التنفيذية...
           </h3>
-          <p style={{ color: 'var(--text-3)', fontSize: '0.88rem', margin: 0 }}>
-            يتم حساب المواعيد النهائية وترتيب أولويات التقديم بحسب نسبة القبول.
+          <p style={{ color: 'var(--text-3)', fontSize: '0.85rem', margin: 0 }}>
+            تحديد أولوية التقديم بحسب معايير القبول ومواعيد الإغلاق الرسمية.
           </p>
         </Card>
       )}
 
       {plan && (
         <>
-          <Card style={{ padding: '1.25rem 1.5rem', marginBottom: '1.5rem', background: 'linear-gradient(135deg, rgba(88,166,255,0.08), rgba(210,153,34,0.08))', borderColor: 'var(--accent)' }}>
-            <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
-              <span style={{ fontSize: '1.8rem' }}>📌</span>
-              <div>
-                <div style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-1)' }}>ملخص الخطة والجدول الزمني:</div>
-                <div style={{ fontSize: '0.88rem', color: 'var(--text-2)', marginTop: '0.2rem', lineHeight: 1.6 }}>
-                  {plan.overall_timeline_summary}
-                </div>
-              </div>
+          <div style={{
+            padding: '1.1rem 1.4rem',
+            marginBottom: '1.25rem',
+            borderRadius: 'var(--radius-sm, 8px)',
+            background: 'var(--surface-2)',
+            border: '1px solid var(--border-soft)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '0.35rem'
+          }}>
+            <div style={{ fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-3)', fontWeight: 700 }}>
+              الجدول الزمني العام ومسار الإجراءات
             </div>
-          </Card>
+            <div style={{ fontSize: '0.9rem', color: 'var(--text-1)', lineHeight: 1.65 }}>
+              {plan.overall_timeline_summary}
+            </div>
+          </div>
 
           <div style={{ display: 'flex', gap: '0.4rem', overflowX: 'auto', marginBottom: '1.25rem', paddingBottom: '0.25rem' }}>
             {plan.scholarship_plans?.map((p: any, idx: number) => {
@@ -176,10 +196,10 @@ export default function PlanPage() {
                   type="button"
                   onClick={() => setActiveTab(idx)}
                   style={{
-                    padding: '0.6rem 1.1rem',
+                    padding: '0.55rem 1rem',
                     borderRadius: 'var(--radius-sm, 8px)',
-                    background: active ? 'var(--accent)' : 'var(--surface-2)',
-                    color: active ? '#0d1117' : 'var(--text-2)',
+                    background: active ? 'var(--surface-3)' : 'var(--surface-2)',
+                    color: active ? 'var(--text-1)' : 'var(--text-3)',
                     fontWeight: active ? 700 : 500,
                     border: `1px solid ${active ? 'var(--accent)' : 'var(--border-soft)'}`,
                     cursor: 'pointer',
@@ -188,17 +208,20 @@ export default function PlanPage() {
                     alignItems: 'center',
                     gap: '0.5rem',
                     fontFamily: 'inherit',
-                    fontSize: '0.88rem',
+                    fontSize: '0.85rem',
                     transition: 'all 0.15s ease'
                   }}
                 >
-                  <span>[{p.priority_rank}] {p.scholarship_name.length > 22 ? p.scholarship_name.slice(0, 22) + '…' : p.scholarship_name}</span>
+                  <span style={{ color: 'var(--text-3)', fontSize: '0.75rem' }}>#{p.priority_rank}</span>
+                  <span>{p.scholarship_name.length > 24 ? p.scholarship_name.slice(0, 24) + '…' : p.scholarship_name}</span>
                   <span style={{
                     padding: '0.1rem 0.4rem',
-                    borderRadius: 12,
-                    background: active ? 'rgba(0,0,0,0.2)' : 'var(--surface-3)',
+                    borderRadius: 4,
+                    background: 'var(--surface-1)',
                     fontSize: '0.75rem',
-                    fontWeight: 700
+                    fontWeight: 700,
+                    fontVariantNumeric: 'tabular-nums',
+                    color: p.match_percentage >= 80 ? 'var(--paid)' : p.match_percentage >= 60 ? 'var(--gold)' : 'var(--unpaid)'
                   }}>
                     {p.match_percentage.toFixed(0)}%
                   </span>
@@ -209,31 +232,37 @@ export default function PlanPage() {
 
           {sp && (
             <div>
-              <Card style={{ padding: '1.5rem', marginBottom: '1.25rem', borderRight: '4px solid var(--accent)' }}>
+              <Card style={{ padding: '1.5rem', marginBottom: '1.25rem' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem' }}>
                   <div>
-                    <h2 style={{ fontSize: '1.3rem', fontWeight: 800, margin: '0 0 0.3rem', color: 'var(--text-1)' }}>
+                    <h2 style={{ fontSize: '1.25rem', fontWeight: 800, margin: '0 0 0.4rem', color: 'var(--text-1)' }}>
                       {sp.scholarship_name}
                     </h2>
-                    <div style={{ fontSize: '0.85rem', color: 'var(--text-3)' }}>
-                      ⏰ الموعد النهائي: <strong style={{ color: 'var(--gold)' }}>{sp.deadline}</strong> · التجهيز المقترح: <strong style={{ color: 'var(--text-1)' }}>~{sp.estimated_preparation_days} يوماً</strong>
+                    <div style={{ fontSize: '0.84rem', color: 'var(--text-3)', display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+                      <span>
+                        الموعد النهائي: <strong style={{ color: 'var(--text-1)', fontVariantNumeric: 'tabular-nums' }}>{sp.deadline}</strong>
+                      </span>
+                      <span>•</span>
+                      <span>
+                        فترة الإعداد المقدرة: <strong style={{ color: 'var(--text-1)', fontVariantNumeric: 'tabular-nums' }}>{sp.estimated_preparation_days} يوماً</strong>
+                      </span>
                     </div>
                   </div>
 
-                  <div style={{ textAlign: 'left' }}>
-                    <div style={{ fontSize: '2rem', fontWeight: 900, color: 'var(--paid)', lineHeight: 1 }}>
+                  <div style={{ textAlign: 'left', minWidth: 90 }}>
+                    <div style={{ fontSize: '2rem', fontWeight: 900, color: sp.match_percentage >= 80 ? 'var(--paid)' : sp.match_percentage >= 60 ? 'var(--gold)' : 'var(--unpaid)', lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>
                       {sp.match_percentage.toFixed(0)}%
                     </div>
-                    <div style={{ fontSize: '0.72rem', color: 'var(--text-3)', marginTop: '0.2rem' }}>نسبة المطابقة</div>
+                    <div style={{ fontSize: '0.72rem', color: 'var(--text-3)', marginTop: '0.25rem' }}>نسبة المطابقة</div>
                   </div>
                 </div>
 
                 {sp.key_tips?.length > 0 && (
-                  <div style={{ marginTop: '1.25rem', padding: '1rem', borderRadius: 8, background: 'var(--surface-2)', border: '1px solid var(--border-subtle)' }}>
-                    <div style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--gold)', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                      💡 نصائح واستراتيجيات التقديم الخاصة بهذه المنحة:
+                  <div style={{ marginTop: '1.25rem', padding: '1rem 1.15rem', borderRadius: 'var(--radius-sm, 8px)', background: 'var(--surface-2)', border: '1px solid var(--border-soft)' }}>
+                    <div style={{ fontWeight: 700, fontSize: '0.85rem', color: 'var(--text-2)', marginBottom: '0.4rem' }}>
+                      التوجيهات الاستراتيجية لمعايير القبول:
                     </div>
-                    <ul style={{ paddingRight: '1.2rem', fontSize: '0.86rem', lineHeight: 1.8, color: 'var(--text-1)', margin: 0 }}>
+                    <ul style={{ paddingRight: '1.2rem', fontSize: '0.85rem', lineHeight: 1.8, color: 'var(--text-1)', margin: 0 }}>
                       {sp.key_tips.map((tip: string, i: number) => (
                         <li key={i}>{tip}</li>
                       ))}
@@ -244,25 +273,31 @@ export default function PlanPage() {
 
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: '1.25rem' }}>
                 <Card style={{ padding: '1.25rem' }}>
-                  <div style={{ fontWeight: 700, fontSize: '1.05rem', marginBottom: '1rem', color: 'var(--text-1)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                    📄 قائمة الوثائق والمستندات المطلوبة (Document Checklist)
+                  <div style={{ fontWeight: 700, fontSize: '0.95rem', marginBottom: '1rem', color: 'var(--text-1)' }}>
+                    قائمة الوثائق والمستندات الرسمية
                   </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
                     {sp.required_documents?.map((d: any, idx: number) => {
-                      const statusVal = d.status === 'required' ? 'unpaid' : d.status === 'optional' ? 'paid' : 'partial'
-                      const statusTxt = d.status === 'required' ? 'إلزامي' : d.status === 'optional' ? 'اختياري' : 'مشروط'
+                      const isRequired = d.status === 'required' || !d.status
+                      const isOptional = d.status === 'optional'
+                      const tone = isRequired ? 'unpaid' : isOptional ? 'neutral' : 'partial'
+                      const iconName = isRequired ? 'alert' : isOptional ? 'check' : 'clock'
+                      const label = isRequired ? 'مستند إلزامي' : isOptional ? 'اختياري' : 'مشروط'
                       return (
-                        <div key={idx} style={{ padding: '0.75rem', borderRadius: 8, background: 'var(--surface-2)', border: '1px solid var(--border-subtle)' }}>
+                        <div key={idx} style={{ padding: '0.75rem 0.9rem', borderRadius: 'var(--radius-sm, 8px)', background: 'var(--surface-2)', border: '1px solid var(--border-soft)' }}>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <span style={{ fontWeight: 700, fontSize: '0.88rem', color: 'var(--text-1)' }}>{d.name}</span>
-                            <StatusPill status={statusVal} />
+                            <span style={{ fontWeight: 700, fontSize: '0.86rem', color: 'var(--text-1)' }}>{d.name}</span>
+                            <span className={`pill pill--${tone}`} style={{ fontSize: '0.72rem' }}>
+                              <Icon name={iconName as any} />
+                              {label}
+                            </span>
                           </div>
-                          <div style={{ fontSize: '0.8rem', color: 'var(--text-3)', marginTop: '0.3rem', lineHeight: 1.5 }}>
+                          <div style={{ fontSize: '0.8rem', color: 'var(--text-3)', marginTop: '0.25rem', lineHeight: 1.5 }}>
                             {d.description}
                           </div>
                           {d.tips && (
-                            <div style={{ fontSize: '0.76rem', color: 'var(--accent)', marginTop: '0.3rem', fontWeight: 500 }}>
-                              💡 {d.tips}
+                            <div style={{ fontSize: '0.76rem', color: 'var(--text-2)', marginTop: '0.35rem', borderTop: '1px dashed var(--border-soft)', paddingTop: '0.35rem' }}>
+                              ملاحظة: {d.tips}
                             </div>
                           )}
                         </div>
@@ -272,29 +307,39 @@ export default function PlanPage() {
                 </Card>
 
                 <Card style={{ padding: '1.25rem' }}>
-                  <div style={{ fontWeight: 700, fontSize: '1.05rem', marginBottom: '1rem', color: 'var(--text-1)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                    🗓️ الخطوات التنفيذية بالترتيب الزمني (Milestones)
+                  <div style={{ fontWeight: 700, fontSize: '0.95rem', marginBottom: '1rem', color: 'var(--text-1)' }}>
+                    المراحل التنفيذية والجدول الزمني
                   </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
                     {sp.application_steps?.map((step: any) => (
-                      <div key={step.step_number} style={{ display: 'flex', gap: '0.9rem', padding: '0.75rem', borderRadius: 8, background: 'var(--surface-2)', border: '1px solid var(--border-subtle)' }}>
+                      <div key={step.step_number} style={{ display: 'flex', gap: '0.85rem', padding: '0.75rem 0.9rem', borderRadius: 'var(--radius-sm, 8px)', background: 'var(--surface-2)', border: '1px solid var(--border-soft)' }}>
                         <div style={{
-                          width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
-                          background: step.is_critical ? 'var(--unpaid)' : 'var(--accent)',
-                          color: '#0d1117', fontWeight: 800, fontSize: '0.8rem',
-                          display: 'flex', alignItems: 'center', justifyContent: 'center'
+                          width: 24, height: 24, borderRadius: '50%', flexShrink: 0,
+                          background: 'var(--surface-3)',
+                          border: `1px solid ${step.is_critical ? 'var(--unpaid)' : 'var(--border-soft)'}`,
+                          color: step.is_critical ? 'var(--unpaid)' : 'var(--text-2)',
+                          fontWeight: 700, fontSize: '0.75rem',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          fontVariantNumeric: 'tabular-nums'
                         }}>
                           {step.step_number}
                         </div>
                         <div style={{ flex: 1 }}>
-                          <div style={{ fontWeight: 700, fontSize: '0.88rem', color: 'var(--text-1)' }}>
-                            {step.title}
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem' }}>
+                            <span style={{ fontWeight: 700, fontSize: '0.86rem', color: 'var(--text-1)' }}>
+                              {step.title}
+                            </span>
+                            {step.is_critical && (
+                              <span style={{ fontSize: '0.68rem', padding: '0.1rem 0.4rem', borderRadius: 4, background: 'rgba(248,81,73,0.1)', color: 'var(--unpaid)', fontWeight: 600 }}>
+                                مرحلة حرجة
+                              </span>
+                            )}
                           </div>
                           <div style={{ fontSize: '0.8rem', color: 'var(--text-3)', marginTop: '0.25rem', lineHeight: 1.5 }}>
                             {step.description}
                           </div>
-                          <div style={{ fontSize: '0.76rem', color: 'var(--gold)', marginTop: '0.3rem', fontWeight: 600 }}>
-                            📅 الإنجاز: {step.due_by}
+                          <div style={{ fontSize: '0.75rem', color: 'var(--text-2)', marginTop: '0.35rem', fontVariantNumeric: 'tabular-nums' }}>
+                            تاريخ الاستحقاق: {step.due_by}
                           </div>
                         </div>
                       </div>
