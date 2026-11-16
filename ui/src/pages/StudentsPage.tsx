@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { Card, Button, Swash } from '../asaas-ui'
+import { Card, Button, Swash, Modal, Field, TextInput, Select, TextArea } from '../asaas-ui'
 import { getStudents, createStudent } from '../api/client'
 
 const DEGREE_OPTIONS = [
@@ -51,123 +51,96 @@ function AddStudentModal({ onAdded, onClose }: { onAdded: () => void; onClose: (
   }
 
   return (
-    <div style={{
-      position: 'fixed', inset: 0, zIndex: 999, background: 'rgba(0,0,0,0.6)',
-      backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem'
-    }}>
-      <Card style={{ maxWidth: 660, width: '100%', maxHeight: '90vh', overflowY: 'auto', padding: '1.5rem' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', borderBottom: '1px solid var(--border-soft)', paddingBottom: '0.85rem' }}>
-          <div>
-            <h2 style={{ fontSize: '1.15rem', fontWeight: 800, margin: 0, color: 'var(--text-1)' }}>
-              تسجيل ملف طالب <Swash>جديد</Swash>
-            </h2>
-            <div style={{ fontSize: '0.8rem', color: 'var(--text-3)', marginTop: '0.2rem' }}>
-              إدخال السجل الأكاديمي، المؤهلات اللغوية، والاهتمامات البحثية.
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="إغلاق"
-            style={{
-              background: 'transparent',
-              border: 'none',
-              fontSize: '1.2rem',
-              cursor: 'pointer',
-              color: 'var(--text-3)',
-              lineHeight: 1,
-              padding: '0.3rem'
-            }}
-          >
-            ✕
-          </button>
+    <Modal
+      title="تسجيل ملف طالب جديد"
+      onClose={onClose}
+      wide
+      footer={
+        <div style={{ display: 'flex', justifyContent: 'flex-start', width: '100%', gap: '0.75rem' }}>
+          <Button variant="primary" onClick={handleSubmit} disabled={loading}>
+            {loading ? 'جاري الحفظ...' : 'حفظ واعتماد الملف'}
+          </Button>
+          <Button variant="ghost" onClick={onClose} type="button">
+            إلغاء
+          </Button>
         </div>
+      }
+    >
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', padding: '0.25rem 0' }}>
+        <p style={{ margin: 0, fontSize: '0.84rem', color: 'var(--text-3)', lineHeight: 1.6 }}>
+          إدخال السجل الأكاديمي، المؤهلات اللغوية، والاهتمامات البحثية للمطابقة مع معايير المنح.
+        </p>
 
         {error && (
-          <div style={{ padding: '0.75rem 1rem', borderRadius: 'var(--radius-sm, 8px)', background: 'rgba(248,81,73,0.06)', border: '1px solid rgba(248,81,73,0.3)', color: 'var(--unpaid)', marginBottom: '1rem', fontSize: '0.85rem' }}>
+          <div style={{ padding: '0.75rem 1rem', borderRadius: 'var(--radius-sm, 8px)', background: 'rgba(248,81,73,0.06)', border: '1px solid rgba(248,81,73,0.3)', color: 'var(--unpaid)', fontSize: '0.85rem' }}>
             {error}
           </div>
         )}
 
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.8rem' }}>
-            <div>
-              <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-2)', display: 'block', marginBottom: '0.3rem' }}>اسم الطالب الكامل</label>
-              <input required value={form.name} onChange={e => set('name', e.target.value)} placeholder="مثال: عبدالغني علي" style={{ width: '100%', padding: '0.6rem 0.8rem', borderRadius: 'var(--radius-sm, 6px)', background: 'var(--surface-2)', color: 'var(--text-1)', border: '1px solid var(--border-soft)', fontFamily: 'inherit', fontSize: '0.88rem' }} />
-            </div>
-            <div>
-              <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-2)', display: 'block', marginBottom: '0.3rem' }}>البريد الإلكتروني الأكاديمي</label>
-              <input required type="email" value={form.email} onChange={e => set('email', e.target.value)} placeholder="student@example.com" style={{ width: '100%', padding: '0.6rem 0.8rem', borderRadius: 'var(--radius-sm, 6px)', background: 'var(--surface-2)', color: 'var(--text-1)', border: '1px solid var(--border-soft)', fontFamily: 'inherit', fontSize: '0.88rem' }} />
-            </div>
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '0.9rem' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '0.9rem' }}>
+            <Field label="اسم الطالب الكامل:">
+              {id => <TextInput id={id} required value={form.name} onChange={e => set('name', e.target.value)} placeholder="عبدالغني علي" />}
+            </Field>
+            <Field label="البريد الإلكتروني الأكاديمي:">
+              {id => <TextInput id={id} required type="email" value={form.email} onChange={e => set('email', e.target.value)} placeholder="student@example.com" />}
+            </Field>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.8rem' }}>
-            <div>
-              <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-2)', display: 'block', marginBottom: '0.3rem' }}>المعدل التراكمي (GPA من 4.0)</label>
-              <input required type="number" step="0.01" min="0" max="4" value={form.gpa} onChange={e => set('gpa', e.target.value)} style={{ width: '100%', padding: '0.6rem 0.8rem', borderRadius: 'var(--radius-sm, 6px)', background: 'var(--surface-2)', color: 'var(--text-1)', border: '1px solid var(--border-soft)', fontFamily: 'inherit', fontSize: '0.88rem', fontVariantNumeric: 'tabular-nums' }} />
-            </div>
-            <div>
-              <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-2)', display: 'block', marginBottom: '0.3rem' }}>التخصص الأكاديمي</label>
-              <input required value={form.major} onChange={e => set('major', e.target.value)} placeholder="Computer Science" style={{ width: '100%', padding: '0.6rem 0.8rem', borderRadius: 'var(--radius-sm, 6px)', background: 'var(--surface-2)', color: 'var(--text-1)', border: '1px solid var(--border-soft)', fontFamily: 'inherit', fontSize: '0.88rem' }} />
-            </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '0.9rem' }}>
+            <Field label="المعدل التراكمي (GPA من 4.0):">
+              {id => <TextInput id={id} required type="number" step="0.01" min="0" max="4" value={form.gpa} onChange={e => set('gpa', e.target.value)} />}
+            </Field>
+            <Field label="التخصص الأكاديمي:">
+              {id => <TextInput id={id} required value={form.major} onChange={e => set('major', e.target.value)} placeholder="Computer Science" />}
+            </Field>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.8rem' }}>
-            <div>
-              <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-2)', display: 'block', marginBottom: '0.3rem' }}>الدرجة الحالية</label>
-              <select value={form.degree_level} onChange={e => set('degree_level', e.target.value)} style={{ width: '100%', padding: '0.6rem 0.8rem', borderRadius: 'var(--radius-sm, 6px)', background: 'var(--surface-2)', color: 'var(--text-1)', border: '1px solid var(--border-soft)', fontFamily: 'inherit', fontSize: '0.88rem' }}>
-                {DEGREE_OPTIONS.map(d => <option key={d.val} value={d.val} style={{ background: '#161b22' }}>{d.label}</option>)}
-              </select>
-            </div>
-            <div>
-              <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-2)', display: 'block', marginBottom: '0.3rem' }}>المرحلة المستهدفة</label>
-              <select value={form.target_degree} onChange={e => set('target_degree', e.target.value)} style={{ width: '100%', padding: '0.6rem 0.8rem', borderRadius: 'var(--radius-sm, 6px)', background: 'var(--surface-2)', color: 'var(--text-1)', border: '1px solid var(--border-soft)', fontFamily: 'inherit', fontSize: '0.88rem' }}>
-                {DEGREE_OPTIONS.map(d => <option key={d.val} value={d.val} style={{ background: '#161b22' }}>{d.label}</option>)}
-              </select>
-            </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '0.9rem' }}>
+            <Field label="الدرجة الحالية:">
+              {id => (
+                <Select id={id} value={form.degree_level} onChange={e => set('degree_level', e.target.value)}>
+                  {DEGREE_OPTIONS.map(d => <option key={d.val} value={d.val}>{d.label}</option>)}
+                </Select>
+              )}
+            </Field>
+            <Field label="المرحلة المستهدفة:">
+              {id => (
+                <Select id={id} value={form.target_degree} onChange={e => set('target_degree', e.target.value)}>
+                  {DEGREE_OPTIONS.map(d => <option key={d.val} value={d.val}>{d.label}</option>)}
+                </Select>
+              )}
+            </Field>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.8rem' }}>
-            <div>
-              <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-2)', display: 'block', marginBottom: '0.3rem' }}>الجنسية</label>
-              <input required value={form.nationality} onChange={e => set('nationality', e.target.value)} style={{ width: '100%', padding: '0.6rem 0.8rem', borderRadius: 'var(--radius-sm, 6px)', background: 'var(--surface-2)', color: 'var(--text-1)', border: '1px solid var(--border-soft)', fontFamily: 'inherit', fontSize: '0.88rem' }} />
-            </div>
-            <div>
-              <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-2)', display: 'block', marginBottom: '0.3rem' }}>بلد الإقامة</label>
-              <input required value={form.country_of_residence} onChange={e => set('country_of_residence', e.target.value)} style={{ width: '100%', padding: '0.6rem 0.8rem', borderRadius: 'var(--radius-sm, 6px)', background: 'var(--surface-2)', color: 'var(--text-1)', border: '1px solid var(--border-soft)', fontFamily: 'inherit', fontSize: '0.88rem' }} />
-            </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '0.9rem' }}>
+            <Field label="الجنسية:">
+              {id => <TextInput id={id} required value={form.nationality} onChange={e => set('nationality', e.target.value)} />}
+            </Field>
+            <Field label="بلد الإقامة:">
+              {id => <TextInput id={id} required value={form.country_of_residence} onChange={e => set('country_of_residence', e.target.value)} />}
+            </Field>
           </div>
 
-          <div>
-            <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-2)', display: 'block', marginBottom: '0.3rem' }}>الاهتمامات البحثية (مفصولة بفاصلة)</label>
-            <input value={form.research_interests} onChange={e => set('research_interests', e.target.value)} placeholder="NLP, Deep Learning, Cloud Systems" style={{ width: '100%', padding: '0.6rem 0.8rem', borderRadius: 'var(--radius-sm, 6px)', background: 'var(--surface-2)', color: 'var(--text-1)', border: '1px solid var(--border-soft)', fontFamily: 'inherit', fontSize: '0.88rem' }} />
-          </div>
+          <Field label="الاهتمامات البحثية (مفصولة بفاصلة):">
+            {id => <TextInput id={id} value={form.research_interests} onChange={e => set('research_interests', e.target.value)} placeholder="NLP, Deep Learning, Cloud Systems" />}
+          </Field>
 
-          <div>
-            <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-2)', display: 'block', marginBottom: '0.3rem' }}>الخبرات السابقة والمشاريع (سطر لكل خبرة)</label>
-            <textarea rows={2} value={form.experiences} onChange={e => set('experiences', e.target.value)} style={{ width: '100%', padding: '0.6rem 0.8rem', borderRadius: 'var(--radius-sm, 6px)', background: 'var(--surface-2)', color: 'var(--text-1)', border: '1px solid var(--border-soft)', resize: 'vertical', fontFamily: 'inherit', fontSize: '0.88rem' }} />
-          </div>
+          <Field label="الخبرات السابقة والمشاريع (سطر لكل خبرة):">
+            {id => <TextArea id={id} rows={2} value={form.experiences} onChange={e => set('experiences', e.target.value)} />}
+          </Field>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 140px', gap: '0.8rem' }}>
-            <div>
-              <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-2)', display: 'block', marginBottom: '0.3rem' }}>الدول المستهدفة للابتعاث</label>
-              <input value={form.target_countries} onChange={e => set('target_countries', e.target.value)} placeholder="Germany, USA, UK" style={{ width: '100%', padding: '0.6rem 0.8rem', borderRadius: 'var(--radius-sm, 6px)', background: 'var(--surface-2)', color: 'var(--text-1)', border: '1px solid var(--border-soft)', fontFamily: 'inherit', fontSize: '0.88rem' }} />
-            </div>
-            <div>
-              <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-2)', display: 'block', marginBottom: '0.3rem' }}>الأوراق البحثية</label>
-              <input type="number" min="0" value={form.publications} onChange={e => set('publications', e.target.value)} style={{ width: '100%', padding: '0.6rem 0.8rem', borderRadius: 'var(--radius-sm, 6px)', background: 'var(--surface-2)', color: 'var(--text-1)', border: '1px solid var(--border-soft)', fontFamily: 'inherit', fontSize: '0.88rem', fontVariantNumeric: 'tabular-nums' }} />
-            </div>
-          </div>
-
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.65rem', marginTop: '0.75rem', borderTop: '1px solid var(--border-soft)', paddingTop: '0.85rem' }}>
-            <Button variant="ghost" onClick={onClose} type="button">إلغاء</Button>
-            <Button variant="primary" type="submit" disabled={loading}>
-              {loading ? 'جاري الحفظ...' : 'حفظ واعتماد الملف'}
-            </Button>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 140px', gap: '0.9rem' }}>
+            <Field label="الدول المستهدفة للابتعاث:">
+              {id => <TextInput id={id} value={form.target_countries} onChange={e => set('target_countries', e.target.value)} placeholder="Germany, USA, UK" />}
+            </Field>
+            <Field label="الأوراق البحثية:">
+              {id => <TextInput id={id} type="number" min="0" value={form.publications} onChange={e => set('publications', e.target.value)} />}
+            </Field>
           </div>
         </form>
-      </Card>
-    </div>
+      </div>
+    </Modal>
   )
 }
 
