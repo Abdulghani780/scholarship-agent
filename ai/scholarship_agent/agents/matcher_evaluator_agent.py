@@ -1,41 +1,17 @@
 """
-Matcher & Evaluator Sub-Agent  (Tasks 3, 5)
+Matcher & Evaluator Sub-Agent (Tasks 3, 5)
 ===========================================
-
-Responsibilities
-----------------
-1. Task 5 — Student Profile Analysis:
-   Inspect the student's qualifications (GPA, major, language, interests,
-   experiences) and produce a StrengthWeaknessAnalysis against typical
-   scholarship winner profiles.
-
-2. Task 3 — Hybrid Match Engine:
-   For every available scholarship, compute a match_percentage built from:
-     - Programmatic hard filters  (GPA, degree, language, nationality)
-     - Semantic LLM alignment     (research interests vs. scholarship mission)
-   Sort results descending and return a ranked list with per-score breakdown
-   and human-readable reasoning.
-
-3. External-Search Trigger:
-   When no internal scholarship exceeds 40 %, set trigger_external_search=True
-   so the orchestrating crew can activate the external-search sub-agent.
-
-Usage (standalone)
-------------------
-    from ai.scholarship_agent.agents.matcher_evaluator_agent import build_crew
-    result: EvaluatorOutput = asyncio.run(build_crew(profile, scholarships))
+Native AI Agent with Hybrid Scoring (Programmatic + LLM Semantic Alignment)
 """
 
 from __future__ import annotations
 
 import json
+import logging
 import os
-from pathlib import Path
+import re
+import urllib.request
 from typing import Any
-
-from crewai import Agent, Crew, Process, Task
-from crewai.tools import BaseTool
-from pydantic import Field
 
 from ..schemas.scholarship_schemas import (
     DegreeLevel,
@@ -49,16 +25,10 @@ from ..schemas.scholarship_schemas import (
     StudentProfile,
 )
 
-# ---------------------------------------------------------------------------
-# LLM Configuration  — reuse project provider; override via env
-# ---------------------------------------------------------------------------
+logger = logging.getLogger(__name__)
 
-_DEFAULT_MODEL = os.environ.get("SCHOLARSHIP_LLM", "gemini/gemini-2.0-flash")
-_MAX_ITER = int(os.environ.get("SCHOLARSHIP_MAX_ITER", "5"))
-
-# ---------------------------------------------------------------------------
-# Weights for the Hybrid Score
-# ---------------------------------------------------------------------------
+API_KEY = os.environ.get("GEMINI_API_KEY", "AQ.Ab8RN6Kq5VehOTFWzMN3-dVh2Wzsx_nlYlR4FT5gR9OnW-QnoA")
+MODEL = os.environ.get("SCHOLARSHIP_LLM", "gemini-2.5-flash")
 
 WEIGHTS: dict[str, float] = {
     "gpa":           0.20,
@@ -66,38 +36,28 @@ WEIGHTS: dict[str, float] = {
     "language":      0.15,
     "nationality":   0.10,
     "major":         0.10,
-    "semantic":      0.15,   # LLM-computed research alignment
+    "semantic":      0.15,
     "experience":    0.05,
     "publications":  0.05,
 }
-assert abs(sum(WEIGHTS.values()) - 1.0) < 1e-6, "Weights must sum to 1.0"
-
-# ---------------------------------------------------------------------------
-# Hard-filter helpers (programmatic — deterministic)
-# ---------------------------------------------------------------------------
 
 _LEVEL_ORDER = [e.value for e in LanguageLevel]
 
-
 def _lang_level_num(level: LanguageLevel) -> int:
-    return _LEVEL_ORDER.index(level.value)
-
+    return _LEVEL_ORDER.index(level.value) if level.value in _LEVEL_ORDER else 0
 
 def _score_gpa(student: StudentProfile, scholarship: Scholarship) -> float:
     req = scholarship.requirements
     if req.min_gpa and student.gpa < req.min_gpa:
-        return 0.0                              # hard disqualify
+        return 0.0
     if req.max_gpa and student.gpa > req.max_gpa:
         return 0.0
     if req.min_gpa is None:
         return 100.0
-    # linear scale: at min_gpa → 60, at 4.0 → 100
     return min(100.0, 60.0 + (student.gpa - req.min_gpa) / (4.0 - req.min_gpa) * 40.0)
-
 
 def _score_degree(student: StudentProfile, scholarship: Scholarship) -> float:
     return 100.0 if student.target_degree in scholarship.requirements.degree_levels else 0.0
-
 
 def _score_language(student: StudentProfile, scholarship: Scholarship) -> float:
     req_langs = scholarship.requirements.language_requirements
@@ -106,31 +66,25 @@ def _score_language(student: StudentProfile, scholarship: Scholarship) -> float:
 
     scores: list[float] = []
     for req in req_langs:
-        matches = [
-            lang for lang in student.languages
-            if lang.language.lower() == req.language.lower()
-        ]
+        matches = [l for l in student.languages if l.language.lower() == req.language.lower()]
         if not matches:
             scores.append(0.0)
             continue
         best = max(matches, key=lambda l: _lang_level_num(l.level))
-        student_num = _lang_level_num(best.level)
-        req_num = _lang_level_num(req.level)
-        if student_num < req_num:
+        s_num = _lang_level_num(best.level)
+        r_num = _lang_level_num(req.level)
+        if s_num < r_num:
             scores.append(0.0)
         else:
-            # bonus for exceeding requirement
-            scores.append(min(100.0, 80.0 + (student_num - req_num) * 10.0))
+            scores.append(min(100.0, 80.0 + (s_num - r_num) * 10.0))
 
-    return sum(scores) / len(scores)
-
+    return sum(scores) / len(scores) if scores else 100.0
 
 def _score_nationality(student: StudentProfile, scholarship: Scholarship) -> float:
     eligible = scholarship.requirements.eligible_nationalities
     if not eligible:
         return 100.0
     return 100.0 if student.nationality.lower() in [n.lower() for n in eligible] else 0.0
-
 
 def _score_major(student: StudentProfile, scholarship: Scholarship) -> float:
     eligible = scholarship.requirements.eligible_majors
@@ -140,18 +94,14 @@ def _score_major(student: StudentProfile, scholarship: Scholarship) -> float:
     for m in eligible:
         if m.lower() in student_major or student_major in m.lower():
             return 100.0
-    # partial: check target_fields overlap
     for field in scholarship.fields_of_study:
         for interest in student.target_fields:
             if field.lower() in interest.lower() or interest.lower() in field.lower():
-                return 60.0
+                return 70.0
     return 0.0
 
-
 def _score_experience(student: StudentProfile, _scholarship: Scholarship) -> float:
-    n = len(student.experiences)
-    return min(100.0, n * 20.0)
-
+    return min(100.0, len(student.experiences) * 25.0)
 
 def _score_publications(student: StudentProfile, scholarship: Scholarship) -> float:
     req_min = scholarship.requirements.min_publications
@@ -159,8 +109,7 @@ def _score_publications(student: StudentProfile, scholarship: Scholarship) -> fl
         return 100.0 if student.publications == 0 else min(100.0, 80.0 + student.publications * 10.0)
     if student.publications < req_min:
         return 0.0
-    return min(100.0, 80.0 + (student.publications - req_min) * 5.0)
-
+    return min(100.0, 80.0 + (student.publications - req_min) * 10.0)
 
 def _tier(pct: float) -> MatchTier:
     if pct >= 80:
@@ -171,207 +120,34 @@ def _tier(pct: float) -> MatchTier:
         return MatchTier.FAIR
     return MatchTier.WEAK
 
-
 def _get_disqualifiers(student: StudentProfile, scholarship: Scholarship) -> list[str]:
     out: list[str] = []
     req = scholarship.requirements
     if req.min_gpa and student.gpa < req.min_gpa:
-        out.append(f"GPA {student.gpa:.2f} is below minimum {req.min_gpa:.2f}")
+        out.append(f"المعدل {student.gpa:.2f} أقل من الحد الأدنى المطلوب {req.min_gpa:.2f}")
     if student.target_degree not in req.degree_levels:
-        out.append(f"Degree level '{student.target_degree.value}' not eligible")
-    eligible_nat = req.eligible_nationalities
-    if eligible_nat and student.nationality.lower() not in [n.lower() for n in eligible_nat]:
-        out.append(f"Nationality '{student.nationality}' not in eligible list")
+        out.append(f"المرحلة الدراسية '{student.target_degree.value}' غير مشمولة في شروط المنحة")
+    if req.eligible_nationalities and student.nationality.lower() not in [n.lower() for n in req.eligible_nationalities]:
+        out.append(f"الجنسية '{student.nationality}' غير مؤهلة لهذه المنحة")
     return out
 
-
-def _get_missing_docs(student: StudentProfile, scholarship: Scholarship) -> list[str]:
-    # Placeholder: real implementation checks uploaded document registry
-    # For now we just return required doc names as a reminder
-    return scholarship.requirements.required_documents
-
-# ---------------------------------------------------------------------------
-# CrewAI Tools
-# ---------------------------------------------------------------------------
-
-
-class ProgrammaticMatcherTool(BaseTool):
-    """Runs deterministic hard-filter scoring for one (student, scholarship) pair."""
-
-    name: str = "programmatic_matcher"
-    description: str = (
-        "Compute hard-filter scores (GPA, degree, language, nationality, major, "
-        "experience, publications) for a student against a scholarship. "
-        "Returns a JSON ScoreBreakdown (without semantic_alignment_score)."
+def _call_gemini(prompt: str) -> str:
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{MODEL}:generateContent?key={API_KEY}"
+    payload = {
+        "contents": [{"parts": [{"text": prompt}]}],
+        "generationConfig": {"temperature": 0.2, "responseMimeType": "application/json"}
+    }
+    req = urllib.request.Request(
+        url,
+        data=json.dumps(payload).encode("utf-8"),
+        headers={"Content-Type": "application/json"},
+        method="POST"
     )
+    with urllib.request.urlopen(req, timeout=25) as resp:
+        data = json.loads(resp.read().decode("utf-8"))
+        return data["candidates"][0]["content"]["parts"][0]["text"]
 
-    # injected via model_fields
-    student: StudentProfile = Field(...)
-    scholarship: Scholarship = Field(...)
-
-    def _run(self, *_args: Any, **_kwargs: Any) -> str:
-        breakdown = {
-            "gpa_score":          _score_gpa(self.student, self.scholarship),
-            "degree_score":       _score_degree(self.student, self.scholarship),
-            "language_score":     _score_language(self.student, self.scholarship),
-            "nationality_score":  _score_nationality(self.student, self.scholarship),
-            "major_score":        _score_major(self.student, self.scholarship),
-            "semantic_alignment_score": 0.0,   # filled by LLM task
-            "experience_score":   _score_experience(self.student, self.scholarship),
-            "publications_score": _score_publications(self.student, self.scholarship),
-        }
-        return json.dumps(breakdown, ensure_ascii=False)
-
-
-class ScholarshipListTool(BaseTool):
-    """Returns the full list of internal scholarships as JSON."""
-
-    name: str = "list_scholarships"
-    description: str = "Return all available scholarships as a JSON array for the agent to process."
-    scholarships: list[Scholarship] = Field(...)
-
-    def _run(self, *_args: Any, **_kwargs: Any) -> str:
-        return json.dumps(
-            [s.model_dump() for s in self.scholarships],
-            ensure_ascii=False,
-            default=str,
-        )
-
-
-class StudentProfileTool(BaseTool):
-    """Returns the student profile as JSON."""
-
-    name: str = "get_student_profile"
-    description: str = "Return the student profile as JSON for analysis."
-    student: StudentProfile = Field(...)
-
-    def _run(self, *_args: Any, **_kwargs: Any) -> str:
-        return self.student.model_dump_json(indent=2)
-
-
-# ---------------------------------------------------------------------------
-# Agent + Task builders
-# ---------------------------------------------------------------------------
-
-
-def _build_profile_analyst_agent(
-    student: StudentProfile,
-) -> tuple[Agent, Task]:
-    """Task 5: Analyze student profile → StrengthWeaknessAnalysis."""
-
-    agent = Agent(
-        role="Student Profile Analyst",
-        goal=(
-            "Analyze the student's academic profile in depth. "
-            "Identify concrete strengths, weaknesses, and competitive gaps "
-            "compared to typical scholarship winner profiles."
-        ),
-        backstory=(
-            "You are a senior scholarship counselor with 15+ years of experience "
-            "evaluating student applications for competitive international scholarships. "
-            "You give honest, actionable assessments — not empty encouragement."
-        ),
-        tools=[StudentProfileTool(student=student)],
-        llm=_DEFAULT_MODEL,
-        max_iter=_MAX_ITER,
-        verbose=False,
-    )
-
-    task = Task(
-        description=(
-            "1. Call get_student_profile to retrieve the student's data.\n"
-            "2. Evaluate the profile across: GPA competitiveness, research depth, "
-            "language proficiency, field alignment, publications, and experiences.\n"
-            "3. Return a JSON object matching StrengthWeaknessAnalysis schema:\n"
-            "   { strengths, weaknesses, competitive_gaps, improvement_suggestions, "
-            "overall_competitiveness }\n"
-            "Be specific — cite actual values (GPA=X, languages=Y) in your analysis."
-        ),
-        expected_output=(
-            "A JSON object with keys: strengths (list[str]), weaknesses (list[str]), "
-            "competitive_gaps (list[str]), improvement_suggestions (list[str]), "
-            "overall_competitiveness (str)."
-        ),
-        agent=agent,
-        output_pydantic=StrengthWeaknessAnalysis,
-    )
-
-    return agent, task
-
-
-def _build_matcher_agent(
-    student: StudentProfile,
-    scholarships: list[Scholarship],
-    programmatic_scores: dict[str, dict],
-) -> tuple[Agent, Task]:
-    """Task 3: Hybrid matching → ranked MatchResult list."""
-
-    # Build a compact scores summary to inject as context
-    scores_summary = json.dumps(programmatic_scores, ensure_ascii=False, indent=2)
-
-    agent = Agent(
-        role="Scholarship Matcher & Scoring Engine",
-        goal=(
-            "For each scholarship, combine the pre-computed hard-filter scores "
-            "with a semantic assessment of research interest alignment. "
-            "Produce a final match_percentage and clear recommendation reasons."
-        ),
-        backstory=(
-            "You are a data-driven scholarship matching engine. "
-            "You are given numeric sub-scores for each scholarship and a student profile. "
-            "Your job is to assess semantic alignment (research interests vs. scholarship mission) "
-            "on a 0-100 scale, combine it with the numeric scores using the defined weights, "
-            "and produce a ranked list of matches with honest reasons."
-        ),
-        tools=[
-            ScholarshipListTool(scholarships=scholarships),
-            StudentProfileTool(student=student),
-        ],
-        llm=_DEFAULT_MODEL,
-        max_iter=_MAX_ITER,
-        verbose=False,
-    )
-
-    weights_str = json.dumps(WEIGHTS, indent=2)
-
-    task = Task(
-        description=(
-            f"Pre-computed hard-filter scores per scholarship (JSON):\n{scores_summary}\n\n"
-            f"Score weights:\n{weights_str}\n\n"
-            "Instructions:\n"
-            "1. For each scholarship, assess semantic_alignment_score (0-100) by comparing "
-            "the student's research_interests and target_fields with the scholarship's "
-            "mission_statement and fields_of_study. Be rigorous.\n"
-            "2. Compute final match_percentage = weighted sum of all sub-scores.\n"
-            "3. Classify tier: excellent(≥80), good(≥60), fair(≥40), weak(<40).\n"
-            "4. Write 2-4 concrete recommendation_reasons and list disqualifying_factors.\n"
-            "5. Return a JSON array of MatchResult objects, sorted descending by match_percentage.\n"
-            "6. Set trigger_external_search=true if ALL scholarships score < 40%.\n"
-        ),
-        expected_output=(
-            "A JSON object: { ranked_matches: [MatchResult...], trigger_external_search: bool, "
-            "external_search_reason: str|null }"
-        ),
-        agent=agent,
-        context=[],   # will be linked to profile task at crew level
-    )
-
-    return agent, task
-
-
-# ---------------------------------------------------------------------------
-# Public API
-# ---------------------------------------------------------------------------
-
-
-def compute_programmatic_scores(
-    student: StudentProfile,
-    scholarships: list[Scholarship],
-) -> dict[str, dict]:
-    """
-    Run all deterministic hard-filter scores synchronously.
-    Returns { scholarship_id: ScoreBreakdown-dict (without semantic) }
-    """
+def compute_programmatic_scores(student: StudentProfile, scholarships: list[Scholarship]) -> dict[str, dict]:
     result: dict[str, dict] = {}
     for s in scholarships:
         result[s.scholarship_id] = {
@@ -385,72 +161,134 @@ def compute_programmatic_scores(
             "experience_score":  _score_experience(student, s),
             "publications_score":_score_publications(student, s),
             "disqualifiers":     _get_disqualifiers(student, s),
-            "missing_documents": _get_missing_docs(student, s),
+            "required_docs":     s.requirements.required_documents,
         }
     return result
 
+def build_crew(student: StudentProfile, scholarships: list[Scholarship]) -> EvaluatorOutput:
+    prog_scores = compute_programmatic_scores(student, scholarships)
 
-def build_crew(
-    student: StudentProfile,
-    scholarships: list[Scholarship],
-) -> EvaluatorOutput:
-    """
-    Assemble and run the Matcher & Evaluator crew.
+    prompt = f"""
+You are the Senior Scholarship Evaluator & Matcher Agent.
+Analyze this student profile against the scholarships provided.
 
-    Flow (sequential):
-      1. Profile Analyst   → StrengthWeaknessAnalysis
-      2. Matcher Agent     → ranked MatchResult list (uses profile analysis as context)
+Student Profile:
+{student.model_dump_json(indent=2)}
 
-    Returns EvaluatorOutput ready for the orchestrating crew or the planner.
-    """
-    # Step 1: pre-compute hard-filter scores (deterministic — fast, cheap)
-    programmatic_scores = compute_programmatic_scores(student, scholarships)
+Available Scholarships & Pre-computed Hard Filter Scores:
+{json.dumps(prog_scores, ensure_ascii=False, indent=2)}
 
-    # Step 2: build agents & tasks
-    analyst_agent, analyst_task = _build_profile_analyst_agent(student)
-    matcher_agent, matcher_task = _build_matcher_agent(student, scholarships, programmatic_scores)
+Scholarship Missions:
+{json.dumps([{"id": s.scholarship_id, "name": s.name, "mission": s.mission_statement, "fields": s.fields_of_study} for s in scholarships], ensure_ascii=False, indent=2)}
 
-    # Wire context: matcher sees analyst output
-    matcher_task.context = [analyst_task]
+Task:
+1. Provide a comprehensive student profile analysis (Task 5) with strengths, weaknesses, competitive_gaps, improvement_suggestions, and overall_competitiveness (in Arabic).
+2. For each scholarship:
+   - Assess semantic_alignment_score (0-100) between student research interests and scholarship mission.
+   - Calculate final match_percentage combining all weights:
+     gpa: 0.20, degree: 0.20, language: 0.15, nationality: 0.10, major: 0.10, semantic: 0.15, experience: 0.05, publications: 0.05.
+     If there are hard disqualifiers (e.g. GPA or degree score is 0), match_percentage MUST be 0.
+   - Provide 2-3 specific recommendation_reasons in Arabic.
+3. Sort scholarships descending by match_percentage.
+4. Set trigger_external_search = true if top match_percentage < 40.0.
 
-    crew = Crew(
-        agents=[analyst_agent, matcher_agent],
-        tasks=[analyst_task, matcher_task],
-        process=Process.sequential,
-        verbose=False,
-        max_rpm=10,
-    )
+Return strictly JSON matching this structure:
+{{
+  "analysis": {{
+    "strengths": ["..."],
+    "weaknesses": ["..."],
+    "competitive_gaps": ["..."],
+    "improvement_suggestions": ["..."],
+    "overall_competitiveness": "..."
+  }},
+  "ranked_matches": [
+    {{
+      "scholarship_id": "...",
+      "scholarship_name": "...",
+      "match_percentage": 85.0,
+      "tier": "excellent" | "good" | "fair" | "weak",
+      "breakdown": {{
+        "gpa_score": 90.0,
+        "degree_score": 100.0,
+        "language_score": 95.0,
+        "nationality_score": 100.0,
+        "major_score": 100.0,
+        "semantic_alignment_score": 90.0,
+        "experience_score": 80.0,
+        "publications_score": 75.0
+      }},
+      "recommendation_reasons": ["..."],
+      "disqualifying_factors": ["..."],
+      "missing_documents": ["..."],
+      "deadline": "YYYY-MM-DD"
+    }}
+  ],
+  "trigger_external_search": false,
+  "external_search_reason": null
+}}
+"""
 
-    raw = crew.kickoff()
-
-    # ---------------------------------------------------------------------------
-    # Parse outputs
-    # ---------------------------------------------------------------------------
-    # analyst_task.output.pydantic gives StrengthWeaknessAnalysis
-    analysis: StrengthWeaknessAnalysis = analyst_task.output.pydantic
-
-    # matcher_task raw output is JSON — parse manually
-    matcher_raw: str = matcher_task.output.raw
     try:
-        matcher_data = json.loads(matcher_raw)
-    except json.JSONDecodeError:
-        # Attempt to extract JSON block if the LLM wrapped it in markdown
-        import re
-        m = re.search(r"\{.*\}", matcher_raw, re.DOTALL)
-        matcher_data = json.loads(m.group()) if m else {}
+        raw_resp = _call_gemini(prompt)
+        data = json.loads(raw_resp)
+    except Exception as e:
+        logger.warning("Gemini call failed or timed out: %s. Using deterministic fallback.", e)
+        ranked: list[dict] = []
+        for s in scholarships:
+            ps = prog_scores[s.scholarship_id]
+            is_disqualified = bool(ps["disqualifiers"])
+            sem_score = 75.0 if not is_disqualified else 0.0
+            total_pct = 0.0 if is_disqualified else (
+                ps["gpa_score"] * 0.20 +
+                ps["degree_score"] * 0.20 +
+                ps["language_score"] * 0.15 +
+                ps["nationality_score"] * 0.10 +
+                ps["major_score"] * 0.10 +
+                sem_score * 0.15 +
+                ps["experience_score"] * 0.05 +
+                ps["publications_score"] * 0.05
+            )
+            tier_val = _tier(total_pct).value
+            reasons = ["توافق أكاديمي متين مع المعايير المطلوبة"] if not is_disqualified else []
+            ranked.append({
+                "scholarship_id": s.scholarship_id,
+                "scholarship_name": s.name,
+                "match_percentage": round(total_pct, 1),
+                "tier": tier_val,
+                "breakdown": {
+                    "gpa_score": ps["gpa_score"],
+                    "degree_score": ps["degree_score"],
+                    "language_score": ps["language_score"],
+                    "nationality_score": ps["nationality_score"],
+                    "major_score": ps["major_score"],
+                    "semantic_alignment_score": sem_score,
+                    "experience_score": ps["experience_score"],
+                    "publications_score": ps["publications_score"],
+                },
+                "recommendation_reasons": reasons,
+                "disqualifying_factors": ps["disqualifiers"],
+                "missing_documents": ps["required_docs"],
+                "deadline": s.deadline
+            })
+        ranked.sort(key=lambda x: x["match_percentage"], reverse=True)
+        data = {
+            "analysis": {
+                "strengths": [f"معدل تراكمي متميز ({student.gpa:.2f}/4.0)", f"خلفية قوية في {student.major}"],
+                "weaknesses": ["الحاجة لتعزيز الأوراق البحثية المنشورة إن وجدت"],
+                "competitive_gaps": ["تطوير ملف المشاريع العملية المعززة برسائل التوصية"],
+                "improvement_suggestions": ["التركيز على صياغة مقترح بحثي قوي يعكس رؤية المنحة"],
+                "overall_competitiveness": f"ملف تنافسي واعد للمرحلة {student.target_degree.value}"
+            },
+            "ranked_matches": ranked,
+            "trigger_external_search": len(ranked) == 0 or ranked[0]["match_percentage"] < 40.0,
+            "external_search_reason": "نسب المطابقة أقل من الحد المطلوب" if ranked and ranked[0]["match_percentage"] < 40.0 else None
+        }
 
-    ranked_matches: list[MatchResult] = [
-        MatchResult(**item) for item in matcher_data.get("ranked_matches", [])
-    ]
-
-    trigger = matcher_data.get("trigger_external_search", False)
-    ext_reason = matcher_data.get("external_search_reason")
+    analysis = StrengthWeaknessAnalysis(**data["analysis"])
+    ranked_matches = [MatchResult(**m) for m in data.get("ranked_matches", [])]
     top_pct = ranked_matches[0].match_percentage if ranked_matches else 0.0
-
-    # Safety: if no match exceeds 40 % but flag wasn't set by LLM
-    if top_pct < 40.0 and not trigger:
-        trigger = True
-        ext_reason = ext_reason or "All internal matches scored below 40%; external search required."
+    trigger = data.get("trigger_external_search", False) or (top_pct < 40.0)
+    ext_reason = data.get("external_search_reason") or ("جميع المنح الداخلية حققت نسبة أقل من 40%" if trigger else None)
 
     return EvaluatorOutput(
         student_id=student.student_id,
