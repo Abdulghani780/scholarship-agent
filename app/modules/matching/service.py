@@ -11,7 +11,6 @@ from database import Database
 from modules.scholarships.repository import ScholarshipRepository
 from modules.students.repository import StudentRepository
 
-# reuse the agent we built
 from ai.scholarship_agent.agents.matcher_evaluator_agent import build_crew
 from ai.scholarship_agent.schemas.scholarship_schemas import (
     DegreeLevel,
@@ -24,7 +23,7 @@ from ai.scholarship_agent.schemas.scholarship_schemas import (
 
 logger = logging.getLogger(__name__)
 
-_executor = ThreadPoolExecutor(max_workers=2)
+_executor = ThreadPoolExecutor(max_workers=3)
 
 
 def _to_student_profile(row: dict) -> StudentProfile:
@@ -92,7 +91,12 @@ def _to_scholarship(row: dict) -> Scholarship:
 
 
 class MatchingService:
-    async def run(self, student_id: str) -> dict:
+    async def run(
+        self,
+        student_id: str,
+        model_name: str | None = None,
+        api_key: str | None = None,
+    ) -> dict:
         student_row = await StudentRepository.get_by_id(student_id)
         if not student_row:
             raise ValueError(f"Student {student_id} not found")
@@ -104,16 +108,17 @@ class MatchingService:
         student = _to_student_profile(student_row)
         scholarships = [_to_scholarship(r) for r in scholarship_rows]
 
-        logger.info("Running match for student=%s against %d scholarships", student_id, len(scholarships))
+        logger.info(
+            "Running match for student=%s against %d scholarships (model=%s)",
+            student_id, len(scholarships), model_name or "default"
+        )
 
-        # CrewAI is sync — run in executor to avoid blocking the event loop
         loop = asyncio.get_event_loop()
         result = await loop.run_in_executor(
             _executor,
-            lambda: build_crew(student, scholarships),
+            lambda: build_crew(student, scholarships, model_name=model_name, api_key=api_key),
         )
 
-        # Persist result
         await Database.execute(
             """INSERT INTO match_results
                (student_id, trigger_external_search, external_search_reason,

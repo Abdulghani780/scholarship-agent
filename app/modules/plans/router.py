@@ -6,7 +6,7 @@ import asyncio
 import json
 import logging
 from concurrent.futures import ThreadPoolExecutor
-
+from pydantic import BaseModel
 from fastapi import APIRouter, HTTPException, status
 
 from database import Database
@@ -18,29 +18,37 @@ from ai.scholarship_agent.schemas.scholarship_schemas import EvaluatorOutput, St
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/plans", tags=["Application Plans"])
 
-_executor = ThreadPoolExecutor(max_workers=2)
+_executor = ThreadPoolExecutor(max_workers=3)
+
+
+class PlanOptions(BaseModel):
+    top_n: int = 5
+    model_name: str | None = None
+    api_key: str | None = None
 
 
 @router.post("/{student_id}")
-async def generate_plan(student_id: str, top_n: int = 5) -> dict:
+async def generate_plan(student_id: str, options: PlanOptions = PlanOptions()) -> dict:
     """
     Generate a full application plan for the top-N matched scholarships.
-    Automatically runs matching first if no existing result found.
+    Supports dynamic model selection and custom API key.
     """
     student_row = await StudentRepository.get_by_id(student_id)
     if not student_row:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Student not found")
 
-    # Get latest match result
     result_row = await Database.fetch_one(
         "SELECT * FROM match_results WHERE student_id = ? ORDER BY ran_at DESC LIMIT 1",
         (student_id,),
     )
 
     if not result_row:
-        # Auto-run matching first
         try:
-            match_data = await MatchingService().run(student_id)
+            await MatchingService().run(
+                student_id,
+                model_name=options.model_name,
+                api_key=options.api_key,
+            )
         except Exception as e:
             raise HTTPException(500, detail=f"Matching failed: {e}")
         result_row = await Database.fetch_one(
@@ -48,7 +56,6 @@ async def generate_plan(student_id: str, top_n: int = 5) -> dict:
             (student_id,),
         )
 
-    # Reconstruct EvaluatorOutput from DB
     analysis = StrengthWeaknessAnalysis(**json.loads(result_row["analysis_json"]))
     matches = [MatchResult(**m) for m in json.loads(result_row["matches_json"])]
     evaluator_output = EvaluatorOutput(
@@ -65,7 +72,7 @@ async def generate_plan(student_id: str, top_n: int = 5) -> dict:
     loop = asyncio.get_event_loop()
     plan = await loop.run_in_executor(
         _executor,
-        lambda: build_application_plan(student, evaluator_output, top_n=top_n),
+        lambda: build_application_plan(student, evaluator_output, top_n=options.top_n),
     )
 
     plan_json = plan.model_dump_json()

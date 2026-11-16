@@ -2,6 +2,7 @@
 Matcher & Evaluator Sub-Agent (Tasks 3, 5)
 ===========================================
 Native AI Agent with Hybrid Scoring (Programmatic + LLM Semantic Alignment)
+Supports configurable models and custom API keys/endpoints.
 """
 
 from __future__ import annotations
@@ -9,7 +10,6 @@ from __future__ import annotations
 import json
 import logging
 import os
-import re
 import urllib.request
 from typing import Any
 
@@ -27,8 +27,8 @@ from ..schemas.scholarship_schemas import (
 
 logger = logging.getLogger(__name__)
 
-API_KEY = os.environ.get("GEMINI_API_KEY", "AQ.Ab8RN6Kq5VehOTFWzMN3-dVh2Wzsx_nlYlR4FT5gR9OnW-QnoA")
-MODEL = os.environ.get("SCHOLARSHIP_LLM", "gemini-2.5-flash")
+DEFAULT_API_KEY = os.environ.get("GEMINI_API_KEY", "AQ.Ab8RN6Kq5VehOTFWzMN3-dVh2Wzsx_nlYlR4FT5gR9OnW-QnoA")
+DEFAULT_MODEL = os.environ.get("SCHOLARSHIP_LLM", "gemini-2.5-flash")
 
 WEIGHTS: dict[str, float] = {
     "gpa":           0.20,
@@ -131,8 +131,10 @@ def _get_disqualifiers(student: StudentProfile, scholarship: Scholarship) -> lis
         out.append(f"الجنسية '{student.nationality}' غير مؤهلة لهذه المنحة")
     return out
 
-def _call_gemini(prompt: str) -> str:
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/{MODEL}:generateContent?key={API_KEY}"
+def _call_gemini(prompt: str, model_name: str | None = None, api_key: str | None = None) -> str:
+    key = api_key or DEFAULT_API_KEY
+    model = model_name or DEFAULT_MODEL
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={key}"
     payload = {
         "contents": [{"parts": [{"text": prompt}]}],
         "generationConfig": {"temperature": 0.2, "responseMimeType": "application/json"}
@@ -143,7 +145,7 @@ def _call_gemini(prompt: str) -> str:
         headers={"Content-Type": "application/json"},
         method="POST"
     )
-    with urllib.request.urlopen(req, timeout=25) as resp:
+    with urllib.request.urlopen(req, timeout=30) as resp:
         data = json.loads(resp.read().decode("utf-8"))
         return data["candidates"][0]["content"]["parts"][0]["text"]
 
@@ -165,7 +167,12 @@ def compute_programmatic_scores(student: StudentProfile, scholarships: list[Scho
         }
     return result
 
-def build_crew(student: StudentProfile, scholarships: list[Scholarship]) -> EvaluatorOutput:
+def build_crew(
+    student: StudentProfile,
+    scholarships: list[Scholarship],
+    model_name: str | None = None,
+    api_key: str | None = None,
+) -> EvaluatorOutput:
     prog_scores = compute_programmatic_scores(student, scholarships)
 
     prompt = f"""
@@ -229,10 +236,10 @@ Return strictly JSON matching this structure:
 """
 
     try:
-        raw_resp = _call_gemini(prompt)
+        raw_resp = _call_gemini(prompt, model_name=model_name, api_key=api_key)
         data = json.loads(raw_resp)
     except Exception as e:
-        logger.warning("Gemini call failed or timed out: %s. Using deterministic fallback.", e)
+        logger.warning("Gemini model %s failed: %s. Using deterministic fallback.", model_name, e)
         ranked: list[dict] = []
         for s in scholarships:
             ps = prog_scores[s.scholarship_id]
