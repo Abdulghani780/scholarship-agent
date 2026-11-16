@@ -1,0 +1,5 @@
+{"id": "high-gpa-stem-match", "input": {"student_gpa": 3.8, "major": "Computer Science", "language": "C1", "target_degree": "master", "scholarship_min_gpa": 3.5, "scholarship_degree": "master"}, "expect": {"contains": ["excellent", "match_percentage"]}}
+{"id": "disqualified-low-gpa", "input": {"student_gpa": 2.9, "major": "Biology", "language": "B2", "target_degree": "master", "scholarship_min_gpa": 3.5, "scholarship_degree": "master"}, "expect": {"contains": ["disqualifying"]}}
+{"id": "language-fail-blocks-match", "input": {"student_gpa": 3.9, "major": "AI", "language": "B1", "target_degree": "phd", "scholarship_min_gpa": 3.0, "scholarship_language": "C1", "scholarship_degree": "phd"}, "expect": {"contains": ["language", "0.0"]}}
+{"id": "trigger-external-search", "input": {"scenario": "all_matches_weak"}, "expect": {"equals": {"trigger_external_search": true}}}
+{"id": "top-match-ordering", "input": {"scenario": "multiple_scholarships"}, "expect": {"contains": ["ranked_matches"]}}
