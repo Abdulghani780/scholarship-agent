@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import ReactDOM from 'react-dom/client'
 import { BrowserRouter, Route, Routes, NavLink, Link } from 'react-router-dom'
-import { Ambient, ToastProvider, SiteHeader, useTheme, Swash, TabBar, Icon } from './asaas-ui'
+import { Ambient, ToastProvider, SiteHeader, useTheme, Swash, TabBar, Icon, AssistantWidget, type AssistantConfig } from './asaas-ui'
 import './asaas-ui/styles/index.css'
 
 import StudentsPage from './pages/StudentsPage'
@@ -9,7 +9,25 @@ import ScholarshipsPage from './pages/ScholarshipsPage'
 import MatchPage from './pages/MatchPage'
 import PlanPage from './pages/PlanPage'
 import EngineSettingsModal from './components/EngineSettingsModal'
-import { getSavedModelConfig } from './api/client'
+import { getSavedModelConfig, chatWithAssistant } from './api/client'
+
+const assistantConfig: AssistantConfig = {
+  title: 'المستشار الأكاديمي الذكي',
+  subtitle: 'وكيل التقييم والمطابقة الاستراتيجي',
+  user: { id: 'student-advisor-session', displayName: 'طالب المنح' },
+  intro: 'أهلاً بك! أنا مستشارك الأكاديمي الذكي. يمكنني تحليل مؤهلاتك، فحص شروط أي منحة، واقتراح خطة قبول وتفعيل البحث الخارجي لملفك.',
+  placeholder: 'اسأل عن أي منحة، متطلبات القبول، أو خطة تقديمك...',
+  suggestions: [
+    'ما هي أفضل منحة تناسب تخصص الذكاء الاصطناعي؟',
+    'كيف أسد الفجوات التنافسية لزيادة فرص قبولي في DAAD؟',
+    'ما هي المستندات الأساسية للتقديم على منحة تشيفنينغ؟',
+    'ابحث لي عن منح ممولة بالكامل للدراسات العليا',
+  ],
+  ask: async (messages) => {
+    const res = await chatWithAssistant(messages)
+    return { reply: res.reply }
+  },
+}
 
 function HeaderActions({ onOpenSettings }: { onOpenSettings: () => void }) {
   const [theme, toggleTheme] = useTheme()
@@ -135,6 +153,7 @@ function AppLayout() {
         </NavLink>
       </TabBar>
 
+      <AssistantWidget {...assistantConfig} />
       <EngineSettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
     </div>
   )

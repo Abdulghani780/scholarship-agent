@@ -23,6 +23,7 @@ from modules.matching.router import router as matching_router
 from modules.plans.router import router as plans_router
 from modules.scholarships.router import router as scholarships_router
 from modules.students.router import router as students_router
+from modules.assistant.router import router as assistant_router
 
 logging.basicConfig(
     level=logging.INFO,
@@ -82,6 +83,7 @@ app.include_router(students_router)
 app.include_router(scholarships_router)
 app.include_router(matching_router)
 app.include_router(plans_router)
+app.include_router(assistant_router)
 
 
 @app.get("/health")

@@ -72,18 +72,28 @@
 /* The window opens above the launcher. */
 .assistant-panel {
   position: fixed;
-  z-index: 40;
+  z-index: 100;
   bottom: calc(var(--launcher-bottom) + var(--launcher-size) + 12px);
   inset-inline-end: var(--launcher-gap);
   display: flex;
   flex-direction: column;
-  width: min(400px, calc(100vw - 32px));
+  width: min(420px, calc(100vw - 32px));
   height: min(640px, calc(100dvh - var(--launcher-bottom) - var(--launcher-size) - 40px));
   border-radius: 28px;
-  /* More opaque than a card: it floats over busy pages and must stay readable. */
-  background: linear-gradient(165deg, var(--glass-tint-strong), color-mix(in srgb, var(--bg) 90%, transparent));
+  background: #fdfbf7;
+  color: #221f1f;
+  border: 1px solid rgba(186, 149, 85, 0.35);
+  box-shadow: 0 16px 48px -12px rgba(34, 31, 31, 0.25), 0 0 0 1px rgba(186, 149, 85, 0.2);
   transform-origin: bottom left;
   animation: assistant-in 0.35s var(--ease-spring);
+  overflow: hidden;
+}
+
+:root[data-theme='dark'] .assistant-panel {
+  background: #191614;
+  color: #f6f0e5;
+  border: 1px solid rgba(186, 149, 85, 0.3);
+  box-shadow: 0 20px 60px -12px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(186, 149, 85, 0.25);
 }
 
 :root[dir='ltr'] .assistant-panel {

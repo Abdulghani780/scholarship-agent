@@ -58,3 +58,14 @@ export const generatePlan = (studentId: string, topN = 5, options?: { model_name
 }
 
 export const getLatestPlan = (studentId: string) => req<any>(`/plans/${studentId}/latest`)
+
+export const chatWithAssistant = (messages: { role: string; content: string }[], studentId?: string) => {
+  const cfg = getSavedModelConfig()
+  const payload = {
+    messages,
+    student_id: studentId,
+    model_name: cfg.model_name,
+    api_key: cfg.api_key || undefined,
+  }
+  return req<{ reply: string }>('/assistant', { method: 'POST', body: JSON.stringify(payload) })
+}
