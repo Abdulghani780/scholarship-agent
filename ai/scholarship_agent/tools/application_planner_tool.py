@@ -13,6 +13,7 @@ import urllib.request
 from datetime import date, datetime
 from typing import Any
 
+from ..agents.llm_client import call_llm
 from ..schemas.scholarship_schemas import (
     ApplicationPlan,
     ApplicationStep,
@@ -75,7 +76,12 @@ def _build_base_steps(days_until_deadline: int, scholarship_name: str) -> list[A
         ))
     return steps
 
-def _call_gemini_tips(student: StudentProfile, matches: list[MatchResult]) -> dict[str, Any]:
+def _call_gemini_tips(
+    student: StudentProfile,
+    matches: list[MatchResult],
+    model_name: str | None = None,
+    api_key: str | None = None,
+) -> dict[str, Any]:
     prompt = f"""
 You are the Strategic Scholarship Planner Agent.
 For each scholarship in the list below, generate tailored advice for this student.
@@ -105,35 +111,26 @@ Return strictly a JSON object keyed by scholarship_id:
   }}
 }}
 """
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/{MODEL}:generateContent?key={API_KEY}"
-    payload = {
-        "contents": [{"parts": [{"text": prompt}]}],
-        "generationConfig": {"temperature": 0.2, "responseMimeType": "application/json"}
-    }
-    req = urllib.request.Request(
-        url,
-        data=json.dumps(payload).encode("utf-8"),
-        headers={"Content-Type": "application/json"},
-        method="POST"
-    )
     try:
-        with urllib.request.urlopen(req, timeout=20) as resp:
-            data = json.loads(resp.read().decode("utf-8"))
-            return json.loads(data["candidates"][0]["content"]["parts"][0]["text"])
+        raw_resp = call_llm(prompt, model_name=model_name, api_key=api_key, json_mode=True, timeout=30)
+        return json.loads(raw_resp)
     except Exception as e:
         logger.warning("Planner LLM enrichment fallback: %s", e)
         return {}
+
 
 def build_application_plan(
     student: StudentProfile,
     evaluator_output: EvaluatorOutput,
     top_n: int = 5,
+    model_name: str | None = None,
+    api_key: str | None = None,
 ) -> ApplicationPlan:
     viable = [m for m in evaluator_output.ranked_matches if m.match_percentage > 0 and not m.disqualifying_factors][:top_n]
     if not viable:
         viable = evaluator_output.ranked_matches[:top_n]
 
-    enrichment = _call_gemini_tips(student, viable) if viable else {}
+    enrichment = _call_gemini_tips(student, viable, model_name=model_name, api_key=api_key) if viable else {}
 
     plans: list[ScholarshipPlan] = []
     for rank, match in enumerate(viable, 1):

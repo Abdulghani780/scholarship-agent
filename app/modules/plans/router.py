@@ -72,7 +72,13 @@ async def generate_plan(student_id: str, options: PlanOptions = PlanOptions()) -
     loop = asyncio.get_event_loop()
     plan = await loop.run_in_executor(
         _executor,
-        lambda: build_application_plan(student, evaluator_output, top_n=options.top_n),
+        lambda: build_application_plan(
+            student,
+            evaluator_output,
+            top_n=options.top_n,
+            model_name=options.model_name,
+            api_key=options.api_key,
+        ),
     )
 
     plan_json = plan.model_dump_json()

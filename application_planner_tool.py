@@ -42,6 +42,8 @@ class ApplicationPlannerTool:
     """Wrapper class providing an object-oriented interface to the application planner."""
 
     def __init__(self, model_name: str | None = None, api_key: str | None = None):
+        self.model_name = model_name
+        self.api_key = api_key
         self.matcher = MatcherEvaluatorAgent(model_name=model_name, api_key=api_key)
 
     def generate_plan(
@@ -56,6 +58,8 @@ class ApplicationPlannerTool:
             student=student,
             evaluator_output=eval_output,
             top_n=top_n,
+            model_name=self.model_name,
+            api_key=self.api_key,
         )
 
 
@@ -64,11 +68,13 @@ def main():
         description="أداة التخطيط الزمني للتقديم (Application Planner Tool)"
     )
     parser.add_argument("--top-n", type=int, default=3, help="عدد المنح المستهدفة في الخطة (افتراضي: 3)")
+    parser.add_argument("--model", type=str, default=None, help="نموذج الذكاء الاصطناعي (Gemini أو OpenRouter)")
+    parser.add_argument("--api-key", type=str, default=None, help="مفتاح API الخاص (Gemini أو OpenRouter sk-or-...)")
     parser.add_argument("--json", action="store_true", help="إخراج الخطة بصيغة JSON فقط")
     args = parser.parse_args()
 
     student, scholarships = get_sample_data()
-    planner = ApplicationPlannerTool()
+    planner = ApplicationPlannerTool(model_name=args.model, api_key=args.api_key)
     plan = planner.generate_plan(student, scholarships, top_n=args.top_n)
 
     if args.json:

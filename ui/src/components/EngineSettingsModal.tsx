@@ -3,11 +3,13 @@ import { Modal, Button, Field, Select, TextInput } from '../asaas-ui'
 import { getSavedModelConfig, saveModelConfig } from '../api/client'
 
 const MODELS = [
-  { id: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash (افتراضي - سريع ومثالي للمطابقة)' },
-  { id: 'gemini-3.6-flash', label: 'Gemini 3.6 Flash (أحدث إصدار فائق السرعة)' },
-  { id: 'gemini-1.5-flash', label: 'Gemini 1.5 Flash (مستقر وموثوق)' },
-  { id: 'gemini-1.5-pro', label: 'Gemini 1.5 Pro (تحليل استدلالي موسع)' },
-  { id: 'custom', label: 'نموذج مخصص (إدخال يدوي)...' },
+  { id: 'openrouter/free', label: '⚡ OpenRouter: الموجه التلقائي للنماذج المجانية (openrouter/free)' },
+  { id: 'google/gemma-4-31b-it:free', label: '🏆 OpenRouter: جوجل جيما 31B المجاني (google/gemma-4-31b-it:free)' },
+  { id: 'nvidia/nemotron-3-ultra-550b-a55b:free', label: '🧠 OpenRouter: نيفيديا 550B العملاق المجاني (nemotron-3-ultra:free)' },
+  { id: 'baidu/ernie-5.5-flash-preview:free', label: '🚀 OpenRouter: إيرني 5.5 فلاش المجاني (baidu/ernie-5.5-flash-preview:free)' },
+  { id: 'gemini-2.5-flash', label: '💎 Google Gemini: 2.5 Flash (افتراضي النظام المدمج)' },
+  { id: 'gemini-1.5-pro', label: '🔬 Google Gemini: 1.5 Pro (تحليل استدلالي عميق)' },
+  { id: 'custom', label: '⚙️ نموذج مخصص (إدخال يدوي من OpenRouter أو Gemini)...' },
 ]
 
 export default function EngineSettingsModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
@@ -84,14 +86,14 @@ export default function EngineSettingsModal({ isOpen, onClose }: { isOpen: boole
         </Field>
 
         {isCustom && (
-          <Field label="معرف النموذج المخصص (Custom Model Identifier):" hint="مثال: gemini-2.5-flash أو gemini-1.5-pro">
+          <Field label="معرف النموذج المخصص (Model Identifier):" hint="مثال: meta-llama/llama-3.3-70b-instruct:free أو openrouter/free أو gemini-2.5-flash">
             {id => (
               <TextInput
                 id={id}
                 type="text"
                 value={customModel}
                 onChange={e => handleCustomModelChange(e.target.value)}
-                placeholder="gemini-2.5-flash"
+                placeholder="meta-llama/llama-3.3-70b-instruct:free"
               />
             )}
           </Field>
@@ -99,7 +101,7 @@ export default function EngineSettingsModal({ isOpen, onClose }: { isOpen: boole
 
         <Field
           label="مفتاح API الخاص (Custom API Key):"
-          hint="اتركه فارغاً للاعتماد على المفتاح النظامي المدمج في الخادم. يُحفظ محلياً في متصفحك."
+          hint="اتركه فارغاً للمفتاح النظامي المدمج، أو أدخل مفتاح OpenRouter (يبدأ بـ sk-or-...) أو Google Gemini. يُحفظ محلياً بأمان."
         >
           {id => (
             <TextInput
@@ -107,7 +109,7 @@ export default function EngineSettingsModal({ isOpen, onClose }: { isOpen: boole
               type="password"
               value={cfg.api_key}
               onChange={e => handleApiKeyChange(e.target.value)}
-              placeholder="AIzaSy..."
+              placeholder="sk-or-v1-... أو AIzaSy..."
             />
           )}
         </Field>

@@ -27,8 +27,7 @@ from ..schemas.scholarship_schemas import (
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_API_KEY = os.environ.get("GEMINI_API_KEY", "AQ.Ab8RN6Kq5VehOTFWzMN3-dVh2Wzsx_nlYlR4FT5gR9OnW-QnoA")
-DEFAULT_MODEL = os.environ.get("SCHOLARSHIP_LLM", "gemini-2.5-flash")
+from .llm_client import call_llm, DEFAULT_MODEL, DEFAULT_GEMINI_KEY as DEFAULT_API_KEY
 
 WEIGHTS: dict[str, float] = {
     "gpa":           0.20,
@@ -131,23 +130,6 @@ def _get_disqualifiers(student: StudentProfile, scholarship: Scholarship) -> lis
         out.append(f"الجنسية '{student.nationality}' غير مؤهلة لهذه المنحة")
     return out
 
-def _call_gemini(prompt: str, model_name: str | None = None, api_key: str | None = None) -> str:
-    key = api_key or DEFAULT_API_KEY
-    model = model_name or DEFAULT_MODEL
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={key}"
-    payload = {
-        "contents": [{"parts": [{"text": prompt}]}],
-        "generationConfig": {"temperature": 0.2, "responseMimeType": "application/json"}
-    }
-    req = urllib.request.Request(
-        url,
-        data=json.dumps(payload).encode("utf-8"),
-        headers={"Content-Type": "application/json"},
-        method="POST"
-    )
-    with urllib.request.urlopen(req, timeout=30) as resp:
-        data = json.loads(resp.read().decode("utf-8"))
-        return data["candidates"][0]["content"]["parts"][0]["text"]
 
 def compute_programmatic_scores(student: StudentProfile, scholarships: list[Scholarship]) -> dict[str, dict]:
     result: dict[str, dict] = {}
@@ -236,10 +218,10 @@ Return strictly JSON matching this structure:
 """
 
     try:
-        raw_resp = _call_gemini(prompt, model_name=model_name, api_key=api_key)
+        raw_resp = call_llm(prompt, model_name=model_name, api_key=api_key)
         data = json.loads(raw_resp)
     except Exception as e:
-        logger.warning("Gemini model %s failed: %s. Using deterministic fallback.", model_name, e)
+        logger.warning("LLM model %s failed: %s. Using deterministic fallback.", model_name, e)
         ranked: list[dict] = []
         for s in scholarships:
             ps = prog_scores[s.scholarship_id]
