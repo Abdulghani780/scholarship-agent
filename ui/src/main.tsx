@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import ReactDOM from 'react-dom/client'
 import { BrowserRouter, Route, Routes, NavLink, Link } from 'react-router-dom'
 import { Ambient, ToastProvider, SiteHeader, useTheme, Swash, TabBar, Icon, AssistantWidget, type AssistantConfig } from './asaas-ui'
@@ -9,25 +9,7 @@ import ScholarshipsPage from './pages/ScholarshipsPage'
 import MatchPage from './pages/MatchPage'
 import PlanPage from './pages/PlanPage'
 import EngineSettingsModal from './components/EngineSettingsModal'
-import { getSavedModelConfig, chatWithAssistant } from './api/client'
-
-const assistantConfig: AssistantConfig = {
-  title: 'المستشار الأكاديمي الذكي',
-  subtitle: 'وكيل التقييم والمطابقة الاستراتيجي',
-  user: { id: 'student-advisor-session', displayName: 'طالب المنح' },
-  intro: 'أهلاً بك! أنا مستشارك الأكاديمي الذكي. يمكنني تحليل مؤهلاتك، فحص شروط أي منحة، واقتراح خطة قبول وتفعيل البحث الخارجي لملفك.',
-  placeholder: 'اسأل عن أي منحة، متطلبات القبول، أو خطة تقديمك...',
-  suggestions: [
-    'ما هي أفضل منحة تناسب تخصص الذكاء الاصطناعي؟',
-    'كيف أسد الفجوات التنافسية لزيادة فرص قبولي في DAAD؟',
-    'ما هي المستندات الأساسية للتقديم على منحة تشيفنينغ؟',
-    'ابحث لي عن منح ممولة بالكامل للدراسات العليا',
-  ],
-  ask: async (messages) => {
-    const res = await chatWithAssistant(messages)
-    return { reply: res.reply }
-  },
-}
+import { getSavedModelConfig, chatWithAssistant, getStudents } from './api/client'
 
 function HeaderActions({ onOpenSettings }: { onOpenSettings: () => void }) {
   const [theme, toggleTheme] = useTheme()
@@ -85,6 +67,62 @@ function HeaderActions({ onOpenSettings }: { onOpenSettings: () => void }) {
 
 function AppLayout() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
+  const [students, setStudents] = useState<any[]>([])
+  const [activeStudentId, setActiveStudentId] = useState<string>(() => {
+    try {
+      return localStorage.getItem('asaas_active_student_id') || ''
+    } catch {
+      return ''
+    }
+  })
+
+  useEffect(() => {
+    getStudents().then(list => {
+      setStudents(list)
+      if (list.length > 0 && !activeStudentId) {
+        setActiveStudentId(list[0].id)
+        try { localStorage.setItem('asaas_active_student_id', list[0].id) } catch {}
+      }
+    }).catch(() => {})
+  }, [])
+
+  function handleSelectStudent(id: string) {
+    setActiveStudentId(id)
+    try { localStorage.setItem('asaas_active_student_id', id) } catch {}
+  }
+
+  const activeStudent = students.find(s => s.id === activeStudentId) || students[0]
+
+  const assistantConfig: AssistantConfig = {
+    title: 'المستشار الأكاديمي الذكي',
+    subtitle: activeStudent ? `${activeStudent.name} (${activeStudent.major})` : 'وكيل التقييم والمطابقة الاستراتيجي',
+    user: {
+      id: activeStudent ? activeStudent.id : 'student-session',
+      displayName: activeStudent ? activeStudent.name : 'طالب المنح'
+    },
+    intro: activeStudent
+      ? `أهلاً بك يا ${activeStudent.name}! تم تحميل ملفك الأكاديمي بمعدل (${activeStudent.gpa}/4.00) وتخصص (${activeStudent.major}). يمكنك استشارتي في أي وقت لمطابقة ملفك مع المنح أو إعداد خطتك الدراسية.`
+      : 'أهلاً بك! أنا مستشارك الأكاديمي الذكي. يمكنني تحليل مؤهلاتك، فحص شروط أي منحة، واقتراح خطة قبول وتفعيل البحث الخارجي لملفك.',
+    placeholder: 'اسأل عن أي منحة، متطلبات القبول، أو خطة تقديمك...',
+    students: students.map(s => ({ id: s.id, name: s.name, major: s.major, gpa: s.gpa })),
+    activeStudentId: activeStudent?.id,
+    onSelectStudent: handleSelectStudent,
+    suggestions: activeStudent ? [
+      `هل يؤهلني معدلي (${activeStudent.gpa}) للتقديم على منحة DAAD؟`,
+      `ما هي أفضل المنح المتوافقة مع تخصص ${activeStudent.major}؟`,
+      'كيف أسد الفجوات التنافسية في ملفي لزيادة فرص قبولي؟',
+      'ابحث لي عن منح إضافية ممولة بالكامل تناسب ملفي',
+    ] : [
+      'ما هي أفضل منحة تناسب تخصص الذكاء الاصطناعي؟',
+      'كيف أسد الفجوات التنافسية لزيادة فرص قبولي في DAAD؟',
+      'ما هي المستندات الأساسية للتقديم على منحة تشيفنينغ؟',
+      'ابحث لي عن منح ممولة بالكامل للدراسات العليا',
+    ],
+    ask: async (messages) => {
+      const res = await chatWithAssistant(messages, activeStudent?.id)
+      return { reply: res.reply }
+    },
+  }
 
   const navLinks = (
     <>

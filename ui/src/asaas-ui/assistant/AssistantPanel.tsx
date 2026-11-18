@@ -31,6 +31,9 @@ export interface AssistantConfig {
   disclaimer?: string;
   /** Renders a site-specific attachment (e.g. a confirmation card) under the assistant's reply. */
   renderAttachment?: (attachment: unknown, index: number) => ReactNode;
+  students?: Array<{ id: string; name: string; major: string; gpa: number }>;
+  activeStudentId?: string;
+  onSelectStudent?: (id: string) => void;
 }
 
 interface Entry {
@@ -135,6 +138,45 @@ export function AssistantPanel({ config, onClose }: { config: AssistantConfig; o
         {entries.length > 0 && <Button variant="ghost" size="sm" icon="plus" label={kitText('assistantNewChat')} onClick={reset} disabled={pending} />}
         <Button variant="ghost" size="sm" icon="close" label={kitText('close')} onClick={onClose} />
       </header>
+
+      {config.students && config.students.length > 0 && (
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '8px',
+          padding: '7px 16px',
+          background: 'rgba(186, 149, 85, 0.08)',
+          borderBottom: '1px solid var(--hairline)',
+          fontSize: '0.8rem',
+        }}>
+          <span style={{ color: 'var(--text-3)', fontWeight: 600, flexShrink: 0, fontSize: '0.78rem' }}>
+            🎓 الملف الأكاديمي:
+          </span>
+          <select
+            value={config.activeStudentId}
+            onChange={(e) => config.onSelectStudent?.(e.target.value)}
+            style={{
+              flex: 1,
+              background: 'transparent',
+              border: 'none',
+              color: 'var(--text)',
+              fontWeight: 700,
+              fontSize: '0.82rem',
+              cursor: 'pointer',
+              outline: 'none',
+              direction: 'rtl',
+              textAlign: 'right',
+            }}
+          >
+            {config.students.map((s) => (
+              <option key={s.id} value={s.id} style={{ background: 'var(--bg)', color: 'var(--text)' }}>
+                {s.name} ({s.major} - {s.gpa})
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
 
       <div ref={threadRef} className="assistant-panel__thread" aria-live="polite">
         {entries.length === 0 && (

@@ -2,7 +2,8 @@
 Academic Advisor Assistant Router
 =================================
 Provides conversational AI advisor for students and scholarships.
-Supports Google Gemini and OpenRouter models with custom keys.
+Deeply integrated with registered student records and active scholarship database.
+Supports OpenRouter, local AI gateway, and Google Gemini with automatic fallback.
 """
 
 from __future__ import annotations
@@ -38,9 +39,10 @@ class AssistantRequest(BaseModel):
 async def chat_with_advisor(req: AssistantRequest) -> dict:
     """
     Chat endpoint for the interactive Scholarship Advisor agent.
+    Grounds all responses in real student records and scholarship criteria.
     """
     try:
-        # Load scholarships context
+        # 1. Load active scholarships
         scholarships = await ScholarshipRepository.list_active()
         sch_summary = [
             {
@@ -51,50 +53,81 @@ async def chat_with_advisor(req: AssistantRequest) -> dict:
                 "funding": s["funding_type"],
                 "fields": s.get("fields_of_study", []),
                 "min_gpa": s.get("requirements", {}).get("min_gpa"),
-                "mission": s.get("mission_statement", "")[:150],
+                "degree_levels": s.get("requirements", {}).get("degree_levels", []),
+                "languages": s.get("requirements", {}).get("language_requirements", []),
+                "required_docs": s.get("requirements", {}).get("required_documents", []),
+                "mission": s.get("mission_statement", "")[:180],
             }
             for s in scholarships
         ]
 
-        # Load student context if available
-        student_ctx = "لم يتم تحديد طالب معين، أنت تقدم استشارة عامة أو تسأل الطالب عن مؤهلاته."
-        if req.student_id:
-            st = await StudentRepository.get_by_id(req.student_id)
-            if st:
-                student_ctx = (
-                    f"ملف الطالب الحالي:\n"
-                    f"- الاسم: {st['name']}\n"
-                    f"- التخصص: {st['major']}\n"
-                    f"- المعدل: {st['gpa']}/4.0\n"
-                    f"- المرحلة المستهدفة: {st['target_degree']}\n"
-                    f"- الجنسية: {st['nationality']}\n"
-                    f"- الاهتمامات: {', '.join(st.get('research_interests', []))}"
-                )
+        # 2. Load all registered students
+        all_students = await StudentRepository.list_all()
+        selected_student = None
 
-        system_instruction = f"""أنت "المستشار الأكاديمي الذكي" لمنصة المنح الدراسية المعتمدة (بواجهة أساس).
-دورك:
-1. تقديم المشورة الأكاديمية الصادقة والذكية للطلاب بأسلوب ودود، راقٍ، ومهني باللغة العربية.
-2. مساعدة الطلاب في اختيار المنح الأنسب لمعدلاتهم وتخصصاتهم واهتماماتهم البحثية.
-3. شرح معايير القبول (المعدل التراكمي، درجات IELTS/TOEFL، خطاب الدافع SOP، ورسائل التوصية).
-4. إذا سأل الطالب عن منح غير موجودة في الدليل الحالي أو رغب في منح بديلة، أوضح له أنك تستطيع تفعيل إشارة البحث الخارجي (trigger_external_search = True) لجلب خيارات إضافية فوراً.
+        if req.student_id:
+            selected_student = await StudentRepository.get_by_id(req.student_id)
+        if not selected_student and all_students:
+            selected_student = all_students[0]
+
+        if selected_student:
+            langs_str = ", ".join([
+                f"{l.get('language')} ({l.get('level')}{' - ' + str(l.get('test_name', '')) + ' ' + str(l.get('score', '')) if l.get('score') else ''})"
+                for l in selected_student.get("languages", [])
+            ]) or "غير محدد"
+
+            student_ctx = f"""
+ملف الطالب المعتمد حالياً في الجلسة:
+- الاسم: {selected_student['name']}
+- البريد الأكاديمي: {selected_student.get('email', '')}
+- التخصص الحالي: {selected_student['major']}
+- المعدل التراكمي (GPA): {selected_student['gpa']:.2f} من 4.00
+- الدرجة العلمية الحالية: {selected_student['degree_level']}
+- المرحلة المستهدفة: {selected_student['target_degree']}
+- الجنسية: {selected_student['nationality']}
+- بلد الإقامة: {selected_student.get('country_of_residence', '')}
+- الكفاءة اللغوية: {langs_str}
+- الاهتمامات البحثية الدقيقة: {', '.join(selected_student.get('research_interests', []))}
+- الخبرات الأكاديمية والعملية: {', '.join(selected_student.get('experiences', []))}
+- الأوراق البحثية المنشورة: {selected_student.get('publications', 0)} ورقة علمية
+- الدول المفضلة للدراسة: {', '.join(selected_student.get('target_countries', []))}
+- مجالات الاهتمام الأكاديمي: {', '.join(selected_student.get('target_fields', []))}
+"""
+        else:
+            student_ctx = "لم يتم العثور على سجلات طلاب مسجلين حالياً. قدم نصائح عامة واسأل المستخدم عن تخصص ومعدل الطالب."
+
+        other_students = [
+            f"- {st['name']} (التخصص: {st['major']} | المعدل: {st['gpa']} | المرحلة: {st['target_degree']})"
+            for st in all_students
+            if selected_student and st['id'] != selected_student['id']
+        ]
+        other_students_str = "\n".join(other_students) if other_students else "لا يوجد طلاب آخرون مسجلون."
+
+        system_instruction = f"""أنت "المستشار الأكاديمي الذكي" المعتمد لمنصة المنح الدراسية.
+أنت مرتبط بقاعدة بيانات السجل الأكاديمي للطلاب وبنك المنح الرسمية.
+
+{student_ctx}
+
+سجلات الطلاب الآخرين المسجلين في المنصة (إذا سأل المستخدم عن مقارنة أو طالب آخر):
+{other_students_str}
 
 قاعدة بيانات المنح المتاحة حالياً في المنصة:
 {json.dumps(sch_summary, ensure_ascii=False, indent=2)}
 
-سياق الطالب الحالي:
-{student_ctx}
-
-تعليمات الرد:
-- تحدث باللغة العربية الفصحى الراقية بأسلوب مشجع ومختصر ومركز.
-- استخدم التنسيق المنظم والنقاط الواضحة عند ذكر المتطلبات أو النصائح.
+قواعد الاستشارة الذكية:
+1. عند التحدث مع الطالب، خاطبه باسمه واعتمد دائماً على مؤهلاته الحقيقية المذكورة في ملفه أعلاه (معدله، لغته، تخصصه، وأبحاثه).
+2. قارن شروط المنحة مع ملف الطالب بالأرقام (مثلاً: إذا كان معدله 3.72 وشرط المنحة 3.0، وضح له أنه متفوق ومستوفٍ للشرط بأريحية).
+3. عند سؤاله عن نقاط ضعفه أو فجواته التنافسية، استند إلى ملفه (مثلاً: نشر أبحاث إضافية، رفع مستوى اللغة، أو تحصيل رسائل توصية موجهة).
+4. إذا سأل الطالب عن دولة أو تخصص غير مشمول في المنح الحالية، أو طلب منحاً إضافية، وضح له أن بإمكانك تفعيل إشارة البحث الخارجي (trigger_external_search = True) للبحث له عن منح دولية بديلة فوراً.
+5. حافظ على أسلوب ودود، مشجع، علمي رصين، ومنظم بنقاط واضحة.
 """
 
         conversation_lines = [f"System: {system_instruction}"]
-        for m in req.messages[-6:]:  # Keep recent context
-            role_label = "المستخدم" if m.role == "user" else "المستشار"
+        for m in req.messages[-6:]:
+            role_label = "المستخدم" if m.role == "user" else "المستشار الأكاديمي"
             conversation_lines.append(f"{role_label}: {m.content}")
 
-        conversation_lines.append("المستشار: ")
+        conversation_lines.append("المستشار الأكاديمي: ")
         full_prompt = "\n\n".join(conversation_lines)
 
         reply = call_llm(
@@ -111,5 +144,5 @@ async def chat_with_advisor(req: AssistantRequest) -> dict:
     except Exception as e:
         logger.exception("Assistant error: %s", e)
         return {
-            "reply": "أهلاً بك! أنا مستشارك الأكاديمي الذكي. يمكنك سؤالي عن شروط أي منحة، كيفية كتابة خطاب الدافع، أو نصائح لرفع فرص قبولك في المنح الدولية."
+            "reply": "أهلاً بك! أنا مستشارك الأكاديمي. بناءً على سجلك الأكاديمي المعتمد، يسعدني مساعدتك في فحص نسب قبولك في المنح وصياغة ملف تقديم تنافسي."
         }
