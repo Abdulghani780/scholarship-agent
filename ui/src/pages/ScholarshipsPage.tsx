@@ -76,7 +76,7 @@ export default function ScholarshipsPage() {
           }
         >
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', padding: '0.25rem 0' }}>
-            <p style={{ margin: 0, fontSize: '0.84rem', color: 'var(--text-3)', lineHeight: 1.6 }}>
+            <p style={{ margin: 0, fontSize: '0.86rem', lineHeight: 1.6 }}>
               إدخال بيانات الجهة المانحة والشروط ومعايير الاستحقاق الأكاديمي.
             </p>
 

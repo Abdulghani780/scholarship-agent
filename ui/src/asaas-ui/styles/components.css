@@ -664,22 +664,36 @@ select.input option {
 .modal-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 50;
+  z-index: 1000;
   display: grid;
   place-items: center;
   padding: 20px;
-  background: var(--overlay);
-  -webkit-backdrop-filter: blur(6px);
-  backdrop-filter: blur(6px);
+  background: rgba(18, 15, 13, 0.65);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
   animation: fade-in 0.25s var(--ease-out);
 }
 
 .modal {
+  position: relative;
   width: min(100%, 560px);
   max-height: calc(100dvh - 40px);
   display: flex;
   flex-direction: column;
-  animation: pop-in 0.45s var(--ease-spring);
+  border-radius: var(--radius-xl);
+  background: #fdfbf7;
+  color: #221f1f;
+  border: 1px solid rgba(186, 149, 85, 0.45);
+  box-shadow: 0 15px 50px -10px rgba(34, 31, 31, 0.35), 0 0 0 1px rgba(186, 149, 85, 0.25);
+  animation: pop-in 0.35s var(--ease-spring);
+  overflow: hidden;
+}
+
+:root[data-theme='dark'] .modal {
+  background: #191614;
+  color: #f6f0e5;
+  border: 1px solid rgba(186, 149, 85, 0.35);
+  box-shadow: 0 20px 60px -10px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(186, 149, 85, 0.2);
 }
 
 .modal--wide {
@@ -691,19 +705,156 @@ select.input option {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 22px 24px 8px;
+  padding: 20px 24px 16px;
+  border-bottom: 1px solid rgba(186, 149, 85, 0.18);
+}
+
+.modal__header h2 {
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #221f1f;
+  margin: 0;
+}
+
+:root[data-theme='dark'] .modal__header h2 {
+  color: #f6f0e5;
+}
+
+.modal__header .btn--ghost {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  padding: 0;
+  background: rgba(34, 31, 31, 0.08);
+  color: #221f1f;
+  border: 1px solid rgba(34, 31, 31, 0.12);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.modal__header .btn--ghost:hover {
+  background: rgba(186, 149, 85, 0.2);
+  color: #8f6626;
+  border-color: #ba9555;
+}
+
+:root[data-theme='dark'] .modal__header .btn--ghost {
+  background: rgba(255, 255, 255, 0.08);
+  color: #f6f0e5;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+:root[data-theme='dark'] .modal__header .btn--ghost:hover {
+  background: rgba(186, 149, 85, 0.3);
+  color: #d8b36f;
+  border-color: #d8b36f;
 }
 
 .modal__body {
-  padding: 14px 24px 8px;
+  padding: 20px 24px;
   overflow-y: auto;
+  color: #221f1f;
+}
+
+:root[data-theme='dark'] .modal__body {
+  color: #f6f0e5;
+}
+
+.modal__body p,
+.modal p {
+  color: rgba(34, 31, 31, 0.8);
+}
+
+:root[data-theme='dark'] .modal__body p,
+:root[data-theme='dark'] .modal p {
+  color: rgba(246, 240, 229, 0.8);
+}
+
+.modal .field__label {
+  color: #221f1f;
+  font-weight: 600;
+  font-size: 0.88rem;
+  margin-bottom: 6px;
+}
+
+:root[data-theme='dark'] .modal .field__label {
+  color: #f6f0e5;
+}
+
+.modal .field__hint {
+  color: rgba(34, 31, 31, 0.65);
+  font-size: 0.8rem;
+  margin-top: 4px;
+}
+
+:root[data-theme='dark'] .modal .field__hint {
+  color: rgba(246, 240, 229, 0.65);
+}
+
+.modal .input,
+.modal select.input,
+.modal textarea.input {
+  background: #f4efe6;
+  color: #221f1f;
+  border: 1.5px solid rgba(186, 149, 85, 0.45);
+  border-radius: var(--radius-md);
+  font-size: 0.92rem;
+  padding: 0 16px;
+  box-shadow: inset 0 1px 3px rgba(34, 31, 31, 0.05);
+}
+
+.modal .input:focus,
+.modal select.input:focus,
+.modal textarea.input:focus {
+  background: #ffffff;
+  border-color: #ba9555;
+  box-shadow: 0 0 0 3px rgba(186, 149, 85, 0.25);
+}
+
+.modal select.input option {
+  background: #fdfbf7;
+  color: #221f1f;
+}
+
+:root[data-theme='dark'] .modal .input,
+:root[data-theme='dark'] .modal select.input,
+:root[data-theme='dark'] .modal textarea.input {
+  background: #120f0d;
+  color: #f6f0e5;
+  border: 1.5px solid rgba(186, 149, 85, 0.35);
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+
+:root[data-theme='dark'] .modal .input:focus,
+:root[data-theme='dark'] .modal select.input:focus,
+:root[data-theme='dark'] .modal textarea.input:focus {
+  background: #1c1815;
+  border-color: #d8b36f;
+  box-shadow: 0 0 0 3px rgba(216, 179, 111, 0.25);
+}
+
+:root[data-theme='dark'] .modal select.input option {
+  background: #191614;
+  color: #f6f0e5;
 }
 
 .modal__footer {
   display: flex;
+  align-items: center;
   justify-content: flex-start;
-  gap: 10px;
-  padding: 16px 24px 22px;
+  gap: 12px;
+  padding: 16px 24px 20px;
+  border-top: 1px solid rgba(186, 149, 85, 0.18);
+  background: rgba(186, 149, 85, 0.04);
+}
+
+:root[data-theme='dark'] .modal__footer {
+  border-top: 1px solid rgba(186, 149, 85, 0.2);
+  background: rgba(255, 255, 255, 0.02);
 }
 
 @keyframes fade-in {

@@ -78,8 +78,7 @@ export function Modal({ title, onClose, children, footer, wide }: ModalProps) {
 
   return createPortal(
     <div className="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <Glass
-        thick
+      <div
         id={dialogId}
         tabIndex={-1}
         className={cx('modal', wide && 'modal--wide')}
@@ -93,7 +92,7 @@ export function Modal({ title, onClose, children, footer, wide }: ModalProps) {
         </header>
         <div className="modal__body">{children}</div>
         {footer && <footer className="modal__footer">{footer}</footer>}
-      </Glass>
+      </div>
     </div>,
     document.body,
   );

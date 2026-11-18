@@ -63,7 +63,7 @@ export default function EngineSettingsModal({ isOpen, onClose }: { isOpen: boole
       }
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', padding: '0.5rem 0' }}>
-        <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-3)', lineHeight: 1.6 }}>
+        <p style={{ margin: 0, fontSize: '0.88rem', lineHeight: 1.6 }}>
           تحديد نموذج المعالجة المعتمد ومفتاح الوصول (API Key) للتحليل والمفاضلة وإعداد الخطط.
         </p>
 
