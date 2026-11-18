@@ -441,3 +441,44 @@
 @keyframes assistant-sheet-in {
   from { opacity: 0; transform: translateY(24px); }
 }
+
+/* ───────── Verified External Scholarship Links ───────── */
+.assistant-link {
+  color: #8f6626;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  margin: 2px 2px;
+  background: rgba(186, 149, 85, 0.15);
+  border-radius: 8px;
+  border: 1px solid rgba(186, 149, 85, 0.35);
+  transition: all 0.2s ease;
+  word-break: break-all;
+  direction: ltr;
+  unicode-bidi: embed;
+}
+
+.assistant-link:hover {
+  background: rgba(186, 149, 85, 0.3);
+  color: #221f1f;
+  border-color: #ba9555;
+  box-shadow: 0 2px 8px rgba(186, 149, 85, 0.25);
+  text-decoration: none;
+  transform: translateY(-1px);
+}
+
+:root[data-theme='dark'] .assistant-link {
+  color: #ecd5a8;
+  background: rgba(229, 196, 131, 0.15);
+  border: 1px solid rgba(229, 196, 131, 0.3);
+}
+
+:root[data-theme='dark'] .assistant-link:hover {
+  background: rgba(229, 196, 131, 0.3);
+  color: #ffffff;
+  border-color: #ecd5a8;
+}

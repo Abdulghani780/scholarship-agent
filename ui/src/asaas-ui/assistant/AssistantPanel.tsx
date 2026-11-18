@@ -66,6 +66,56 @@ function save(key: string, entries: Entry[]) {
 
 const newId = () => crypto.randomUUID();
 
+function renderMessageContent(content: string) {
+  const linkRegex = /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)|(https?:\/\/[^\s)]+)/g;
+  const parts: React.ReactNode[] = [];
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = linkRegex.exec(content)) !== null) {
+    if (match.index > lastIndex) {
+      parts.push(content.substring(lastIndex, match.index));
+    }
+    if (match[1] && match[2]) {
+      const label = match[1];
+      const url = match[2];
+      parts.push(
+        <a
+          key={match.index}
+          href={url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="assistant-link"
+          title={`فتح الرابط في نافذة جديدة: ${url}`}
+        >
+          {label} ↗
+        </a>
+      );
+    } else if (match[3]) {
+      const url = match[3];
+      parts.push(
+        <a
+          key={match.index}
+          href={url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="assistant-link"
+          title={`فتح الرابط في نافذة جديدة: ${url}`}
+        >
+          {url} ↗
+        </a>
+      );
+    }
+    lastIndex = linkRegex.lastIndex;
+  }
+
+  if (lastIndex < content.length) {
+    parts.push(content.substring(lastIndex));
+  }
+
+  return parts.length > 0 ? parts : content;
+}
+
 /** The conversation: header, scrolling thread and composer, sized by its container. */
 export function AssistantPanel({ config, onClose }: { config: AssistantConfig; onClose: () => void }) {
   const { ask, user, title = kitText('assistantTitle'), subtitle = kitText('assistantSubtitle'), suggestions = [] } = config;
@@ -201,7 +251,7 @@ export function AssistantPanel({ config, onClose }: { config: AssistantConfig; o
           <div key={entry.id} className={`bubble bubble--${entry.role}`}>
             {entry.role === 'assistant' && <AssistantFace size="sm" mood={entry.attachments?.length ? 'celebrate' : 'happy'} />}
             <div className="bubble__body">
-              <div className="bubble__text">{entry.content}</div>
+              <div className="bubble__text">{renderMessageContent(entry.content)}</div>
               {config.renderAttachment && entry.attachments?.map((a, i) => <div key={i}>{config.renderAttachment!(a, i)}</div>)}
             </div>
           </div>

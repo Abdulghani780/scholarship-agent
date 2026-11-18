@@ -18,6 +18,7 @@ from database import Database
 from modules.scholarships.repository import ScholarshipRepository
 from modules.students.repository import StudentRepository
 from ai.scholarship_agent.agents.llm_client import call_llm
+from modules.assistant.web_search import search_scholarship_web, format_search_results_for_prompt
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/assistant", tags=["AI Academic Advisor"])
@@ -103,8 +104,28 @@ async def chat_with_advisor(req: AssistantRequest) -> dict:
         ]
         other_students_str = "\n".join(other_students) if other_students else "لا يوجد طلاب آخرون مسجلون."
 
+        # 3. Detect user search intents or link requests
+        latest_user_msg = next((m.content for m in reversed(req.messages) if m.role == "user"), "")
+        search_triggers = [
+            "رابط", "روابط", "لينك", "link", "موقع", "مواقع", "بوابة", "portal",
+            "ابحث", "بحث", "قوقل", "جوجل", "google", "search", "قدم", "تقديم", "كيف أقدم",
+            "عنوان", "url", "أين أجد", "وين أقدم", "عبر الإنترنت", "daad", "chevening",
+            "تشيفنينغ", "فولبرايت", "تركيا", "إيفل", "mext", "erasmus", "خارجي"
+        ]
+        needs_web_search = any(term in latest_user_msg.lower() for term in search_triggers)
+        web_search_section = ""
+        if needs_web_search and latest_user_msg.strip():
+            logger.info("Triggering live web search for user message: %s", latest_user_msg)
+            try:
+                web_results = search_scholarship_web(latest_user_msg, max_results=4)
+                if web_results:
+                    formatted_results = format_search_results_for_prompt(web_results)
+                    web_search_section = f"\n\n🔍 نتائج البحث المباشر في الويب (روابط بوابات التقديم المعتمدة رسمياً):\n{formatted_results}\n"
+            except Exception as search_err:
+                logger.warning("Web search error: %s", search_err)
+
         system_instruction = f"""أنت "المستشار الأكاديمي الذكي" المعتمد لمنصة المنح الدراسية.
-أنت مرتبط بقاعدة بيانات السجل الأكاديمي للطلاب وبنك المنح الرسمية.
+أنت مرتبط بقاعدة بيانات السجل الأكاديمي للطلاب وبنك المنح الرسمية ومزود بمحرك بحث حي عن بوابات التقديم الرسمية.
 
 {student_ctx}
 
@@ -113,13 +134,17 @@ async def chat_with_advisor(req: AssistantRequest) -> dict:
 
 قاعدة بيانات المنح المتاحة حالياً في المنصة:
 {json.dumps(sch_summary, ensure_ascii=False, indent=2)}
-
+{web_search_section}
 قواعد الاستشارة الذكية:
 1. عند التحدث مع الطالب، خاطبه باسمه واعتمد دائماً على مؤهلاته الحقيقية المذكورة في ملفه أعلاه (معدله، لغته، تخصصه، وأبحاثه).
 2. قارن شروط المنحة مع ملف الطالب بالأرقام (مثلاً: إذا كان معدله 3.72 وشرط المنحة 3.0، وضح له أنه متفوق ومستوفٍ للشرط بأريحية).
 3. عند سؤاله عن نقاط ضعفه أو فجواته التنافسية، استند إلى ملفه (مثلاً: نشر أبحاث إضافية، رفع مستوى اللغة، أو تحصيل رسائل توصية موجهة).
-4. إذا سأل الطالب عن دولة أو تخصص غير مشمول في المنح الحالية، أو طلب منحاً إضافية، وضح له أن بإمكانك تفعيل إشارة البحث الخارجي (trigger_external_search = True) للبحث له عن منح دولية بديلة فوراً.
-5. حافظ على أسلوب ودود، مشجع، علمي رصين، ومنظم بنقاط واضحة.
+4. إذا طلب الطالب رابطاً أو موقعاً للتقديم أو سأل عن منحة خارجية أو طلب البحث في قوقل:
+   - قم بتزويده بالروابط الرسمية الحقيقية من نتائج البحث المباشر المذكورة أعلاه.
+   - نسق كل رابط في صورة ماركداون نظيف وقابل للنقر مباشرة: [اسم البوابة الرسمية للتقديم](الرابط المباشر).
+   - حث الطالب على الضغط على الرابط لفتحه والتأكد من فتح باب التسجيل والشروط الحالية.
+5. إذا سأل الطالب عن دولة أو تخصص غير مشمول في المنح الحالية، وضح له أنك بحثت له في الويب وجلبت له الخيارات والروابط الحقيقية، مع إمكانية جدولة خطة كاملة له.
+6. حافظ على أسلوب ودود، مشجع، علمي رصين، ومنظم بنقاط واضحة.
 """
 
         conversation_lines = [f"System: {system_instruction}"]
